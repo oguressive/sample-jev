@@ -1,6 +1,7 @@
 import {
   cleanText,
   createJevClient,
+  readJsonObject,
   requestDeadline,
   safeErrorResponse,
 } from "@sample-jev/jev-server";
@@ -8,11 +9,9 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Input = Record<"title" | "environment" | "steps" | "expected" | "actual", unknown>;
-
 export async function POST(request: Request): Promise<Response> {
   try {
-    const raw = (await request.json()) as Partial<Input>;
+    const raw = await readJsonObject(request);
     const state = {
       title: cleanText(raw.title, 300),
       environment: cleanText(raw.environment, 1_000),

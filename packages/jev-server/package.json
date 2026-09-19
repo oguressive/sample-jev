@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "node --test --experimental-strip-types src/index.test.ts"
+  },
   "dependencies": {
     "@typesafe-ai/sdk": "0.6.0"
   }

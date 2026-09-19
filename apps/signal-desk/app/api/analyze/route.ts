@@ -1,6 +1,7 @@
 import {
   cleanText,
   createJevClient,
+  readJsonObject,
   requestDeadline,
   safeErrorResponse,
 } from "@sample-jev/jev-server";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = (await request.json()) as { message?: unknown };
+    const body = await readJsonObject(request);
     const message = cleanText(body.message, 6_000);
 
     if (message.length < 8) {

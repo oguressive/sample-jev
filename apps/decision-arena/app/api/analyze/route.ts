@@ -1,6 +1,7 @@
 import {
   cleanText,
   createJevClient,
+  readJsonObject,
   requestDeadline,
   safeErrorResponse,
 } from "@sample-jev/jev-server";
@@ -16,7 +17,7 @@ const optionCriteria = {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const raw = (await request.json()) as Record<string, unknown>;
+    const raw = await readJsonObject(request);
     const state = {
       goal: cleanText(raw.goal, 1_500),
       option_a: cleanText(raw.optionA, 3_000),
