@@ -1,12 +1,32 @@
 # sample-jev
 
-Three small TypeScript applications that use Jev for structured judgment rather than text generation.
+Eight small TypeScript applications that use Jev for structured judgment rather than text generation.
 
-| App | Local URL | What it demonstrates |
-| --- | --- | --- |
-| Signal Desk | `http://localhost:3000` | Intent routing, urgency scoring, refund detection, confidence gating |
-| Issue Gate | `http://localhost:3001` | Parallel completeness checks and a code-owned readiness rule |
-| Decision Arena | `http://localhost:3002` | Atomic A/B judgments recomposed with adjustable weights |
+## Applications
+
+| # | App | Local URL | Stack | What it demonstrates |
+| --- | --- | --- | --- | --- |
+| 01 | Signal Desk | `http://localhost:3000` | Next.js | Intent routing, urgency scoring, refund detection, confidence gating |
+| 02 | Issue Gate | `http://localhost:3001` | Next.js | Parallel completeness checks and a code-owned readiness rule |
+| 03 | Decision Arena | `http://localhost:3002` | Next.js | Atomic A/B judgments recomposed with adjustable weights |
+| 04 | Stack Fit | `http://localhost:3003` | Astro + React island | Framework selection from explicit product constraints |
+| 05 | Release Sentinel | `http://localhost:3004` | Vite + React | Release-risk triage without triggering a deployment |
+| 06 | Experiment Gate | `http://localhost:3005` | Vite + React | Experiment preflight for falsifiability, guardrails, and harm risk |
+| 07 | Claim Guard | `http://localhost:3006` | Vite + React | Evidence-aware publication routing for marketing claims |
+| 08 | Trust Queue | `http://localhost:3007` | Vite + React | Safety triage with mandatory human escalation paths |
+
+The five non-Next.js applications use a shared Hono API on `http://localhost:8787`.
+
+## Why multiple frameworks?
+
+The repository intentionally does not make Next.js the default for every interface.
+
+- The original three apps remain compact Next.js reference implementations.
+- Stack Fit has a public, static explanation surface, so Astro emits the shell as HTML and hydrates only the decision form.
+- Release Sentinel, Experiment Gate, Claim Guard, and Trust Queue are single-screen interactive tools with no SEO requirement, so Vite SPAs avoid server/client component and cache-management overhead.
+- Hono keeps the secret-bearing API separate and uses web-standard `Request`/`Response` primitives.
+
+This is a project-specific application of [“Does your project really need Next.js?”](https://ashunar0.dev/posts/does-your-project-need-nextjs/), not a claim that one framework is universally better.
 
 ## Setup
 
@@ -14,55 +34,76 @@ Requirements: Node.js 20.9 or newer and a TypeSafe API key.
 
 ```bash
 npm install
-cp .env.example apps/signal-desk/.env.local
-# Put your API key in apps/signal-desk/.env.local
-npm run dev:signal
+cp .env.example apps/jev-api/.env
+# Put your real TYPESAFE_API_KEY only in apps/jev-api/.env.
 ```
 
-Repeat the `.env.local` step for whichever app you run. Use these commands for the other two applications:
+Start the shared API in one terminal:
 
 ```bash
+npm run dev:api
+```
+
+Then start one frontend in another terminal:
+
+```bash
+npm run dev:stack
+npm run dev:release
+npm run dev:experiment
+npm run dev:claim
+npm run dev:trust
+```
+
+The original Next.js apps remain independently runnable:
+
+```bash
+cp .env.example apps/signal-desk/.env.local
+npm run dev:signal
 npm run dev:issue
 npm run dev:decision
-```
-
-Each app can also be deployed independently. Set `TYPESAFE_API_KEY` and `TYPESAFE_MODEL` in the hosting provider's server-side environment settings.
-
-## Secret handling
-
-- The API key is read only by server route handlers through `process.env.TYPESAFE_API_KEY`.
-- There is no `NEXT_PUBLIC_` secret and no browser-side TypeSafe SDK call.
-- `.env`, `.env.local`, and every `.env.*` file except `.env.example` are ignored.
-- Upstream error bodies and request contents are not returned to the browser or logged.
-- CI builds without an API key; the key is required only when an evaluation endpoint is called.
-
-Before every push, run:
-
-```bash
-npm run check
-git grep -nE '(tsai_[A-Za-z0-9_-]{12,}|-----BEGIN .*PRIVATE KEY-----)' -- ':!package-lock.json'
 ```
 
 ## Architecture
 
 ```text
-browser -> Next.js route handler -> @sample-jev/jev-server -> TypeSafe API
-                                      |
-                                      +-> pinned model, timeout, retry, safe errors
+Astro / Vite frontends -> Hono API -> @sample-jev/jev-server -> TypeSafe API
+                               |
+                               +-> fixed questions -> probabilities -> pure policy functions
 ```
 
-Jev returns structured probabilities. The final workflow rules remain visible in application code: which cases need human review, how readiness is calculated, and how decision dimensions are weighted.
+The browser never provides Jev question definitions. Each API route owns a fixed set of atomic questions. Jev returns structured probabilities and confidence; pure TypeScript functions own the final thresholds, flags, and workflow verdicts.
 
-## Model and thresholds
+## Secret handling
 
-The default model is pinned to `jev-1.13.0`. All thresholds and weights are demo policy, not universal accuracy guarantees. Evaluate them against representative data before using them for consequential actions.
+- `TYPESAFE_API_KEY` is read only by server-side code through `process.env.TYPESAFE_API_KEY`.
+- No `VITE_`, `PUBLIC_`, or `NEXT_PUBLIC_` variable contains a credential.
+- `.env`, `.env.local`, and every `.env.*` file except `.env.example` are ignored.
+- Inputs, credentials, and upstream error bodies are not logged or returned to the browser.
+- The API accepts only fixed evaluation routes and enforces request-size and field-length limits.
+- CI builds and policy tests require no API key; a key is required only for a live evaluation call.
+
+## API routes
+
+| Method | Route |
+| --- | --- |
+| `GET` | `/health` |
+| `POST` | `/v1/stack-fit/evaluate` |
+| `POST` | `/v1/release-sentinel/evaluate` |
+| `POST` | `/v1/experiment-gate/evaluate` |
+| `POST` | `/v1/claim-guard/evaluate` |
+| `POST` | `/v1/trust-queue/evaluate` |
 
 ## Verification
 
 ```bash
-npm run typecheck
-npm run build
+npm run check
 ```
+
+This runs type checking, deterministic policy tests, production builds, and a repository secret scan.
+
+## Model and thresholds
+
+The default model is pinned to `jev-1.13.0`. All thresholds and weights are demo policy, not universal accuracy guarantees. Evaluate them against representative data before consequential use. Claim Guard does not replace legal review, and Trust Queue never applies an automatic ban or sanction.
 
 ## References
 

@@ -1,0 +1,40 @@
+---
+import "@sample-jev/ui/styles.css";
+import { StackFitForm } from "../components/StackFitForm";
+
+const apiBaseUrl = import.meta.env.PUBLIC_JEV_API_URL ?? "http://localhost:8787";
+const apps = ["3000", "3001", "3002", "3003", "3004", "3005", "3006", "3007"];
+---
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content="そのプロジェクトにNext.jsが本当に必要か、Jevの構造化判断で確認するデモ" />
+    <title>Stack Fit / Jev</title>
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="topbar" aria-label="Jev demos">
+        <a class="brand" href="https://github.com/oguressive/sample-jev"><span class="brand-mark" aria-hidden="true">J</span><span>Jev / field notes</span></a>
+        <div class="app-switcher">
+          {apps.map((port, index) => <a class={port === "3003" ? "active" : ""} href={`http://localhost:${port}`} title={`Local port ${port}`}>{String(index + 1).padStart(2, "0")}</a>)}
+        </div>
+      </nav>
+      <header class="hero">
+        <div class="hero-index">04</div>
+        <div>
+          <p class="eyebrow">Framework fit / explicit trade-offs</p>
+          <h1>Stack Fit</h1>
+          <p class="lede">「AIがよく知っているからNext.js」ではなく、SEO・公開性・静的比率・SSR価値・サーバー依存・移植性から初期構成を選びます。</p>
+        </div>
+      </header>
+      <section class="static-note">
+        <h2>Static first, interactive where needed.</h2>
+        <p>この説明部分はAstroが静的HTMLとして生成し、下の判断フォームだけをReact Islandとして配信します。技術選定の主張を、アプリ自身の構成でも示しています。</p>
+      </section>
+      <StackFitForm apiBaseUrl={apiBaseUrl} client:load />
+      <footer><span>Structured judgment, composed in code.</span><span>Astro shell · React island · Hono API</span></footer>
+    </main>
+  </body>
+</html>
