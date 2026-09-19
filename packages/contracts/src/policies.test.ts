@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   decideClaim,
   decideExperiment,
+  decideIncident,
+  decideProgramMatch,
   decideRelease,
   decideStackFit,
   decideTrust,
@@ -87,4 +89,27 @@ test("Trust Queue escalates imminent harm without applying a sanction", () => {
     context_ambiguity: score(1.2),
   });
   assert.equal(decision.verdict, "escalate");
+});
+
+test("Incident Navigator sends severe non-security incidents to a war room", () => {
+  const decision = decideIncident({
+    domain: choice("availability"),
+    urgency: score(2.7),
+    blast_radius: score(2.6),
+    customer_visible: { noul: 0.9 },
+    evidence_quality: score(2.1),
+  });
+  assert.equal(decision.track, "war_room");
+  assert.equal(decision.humanLeadRequired, true);
+});
+
+test("Program Match rejects an explicit eligibility conflict", () => {
+  const decision = decideProgramMatch({
+    mission_match: score(2.5),
+    eligibility_conflict: { noul: 0.9 },
+    evidence_strength: score(2.2),
+    delivery_readiness: score(2.1),
+    downside_risk: score(0.6),
+  });
+  assert.equal(decision.verdict, "not_fit");
 });
