@@ -17,6 +17,9 @@
     "dev:experiment": "npm run dev --workspace=@sample-jev/experiment-gate",
     "dev:claim": "npm run dev --workspace=@sample-jev/claim-guard",
     "dev:trust": "npm run dev --workspace=@sample-jev/trust-queue",
+    "dev:incident": "npm run dev --workspace=@sample-jev/incident-navigator",
+    "dev:program": "npm run dev --workspace=@sample-jev/program-match",
+    "dev:canvas": "npm run dev --workspace=@sample-jev/adaptive-canvas",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -24,6 +27,6 @@
     "check": "npm run typecheck && npm run test && npm run build && npm run secret-scan"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=22.12.0"
   }
 }

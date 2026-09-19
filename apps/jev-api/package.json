@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@json-render/core": "0.21.0",
     "@hono/node-server": "^1.19.0",
+    "@sample-jev/canvas-kit": "*",
     "@sample-jev/contracts": "*",
     "@sample-jev/jev-server": "*",
     "dotenv": "^17.2.0",

@@ -34,6 +34,8 @@ a { color: inherit; }
 .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
 
 .topbar {
+  flex-wrap: wrap;
+  gap: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -43,7 +45,7 @@ a { color: inherit; }
 
 .brand { display: flex; gap: 10px; align-items: center; text-decoration: none; font-size: 13px; font-weight: 750; letter-spacing: .04em; }
 .brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: var(--paper); font-family: Georgia, serif; font-style: italic; }
-.app-switcher { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 4px; background: rgba(255,255,255,.46); }
+.app-switcher { display: flex; flex-wrap: wrap; max-width: 100%; border: 1px solid var(--line); border-radius: 18px; padding: 4px; background: rgba(255,255,255,.46); }
 .app-switcher a { display: grid; place-items: center; width: 32px; height: 26px; border-radius: 999px; text-decoration: none; font: 700 11px ui-monospace, monospace; color: var(--muted); }
 .app-switcher a.active { background: var(--ink); color: white; }
 
