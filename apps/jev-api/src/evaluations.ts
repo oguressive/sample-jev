@@ -1,6 +1,5 @@
 import type {
   CanvasInput,
-  CanvasSpec,
   ClaimAnswers,
   ExperimentAnswers,
   IncidentAnswers,
@@ -20,7 +19,11 @@ import {
   decideStackFit,
   decideTrust,
 } from "@sample-jev/contracts";
-import { canvasCatalog, buildCanvasCandidates } from "@sample-jev/canvas-kit";
+import {
+  canvasCatalog,
+  buildCanvasCandidates,
+  validateCanvasComposition,
+} from "@sample-jev/canvas-kit";
 import {
   experimental_composeSpec,
   type Experimental_CompositionEvent,
@@ -485,9 +488,11 @@ export async function composeCanvas(value: unknown) {
   })) {
     if (event.type === "complete") completed = event;
   }
-  if (!completed?.spec) throw new Error("Jev could not compose a valid canvas.");
+  if (!completed?.spec || !validateCanvasComposition(completed.spec)) {
+    throw new Error("Jev could not compose a canvas with the required header and action.");
+  }
   return {
-    spec: completed.spec as CanvasSpec,
+    spec: completed.spec,
     trace: {
       stopReason: completed.stopReason,
       elapsedMs: completed.elapsedMs,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { experimental_composeSpec, type Experimental_CompositionEvaluator } from "@json-render/core";
-import { buildCanvasCandidates, canvasCatalog } from "./index.ts";
+import { buildCanvasCandidates, canvasCatalog, validateCanvasComposition } from "./index.ts";
 
 test("canvas candidates keep roots and actions mutually exclusive", () => {
   const candidates = buildCanvasCandidates({
@@ -37,6 +37,30 @@ test("official composer preserves prepared text, enforces action capabilities, a
   assert.equal(elements.filter((element) => element.type === "ActionBar").length, 1);
   assert.equal(elements.find((element) => element.type === "BriefHeader")?.props.title, input.title);
   assert.ok(canvasCatalog.validate(final.spec).success);
+  assert.ok(validateCanvasComposition(final.spec));
+});
+
+test("completed canvases still reject omitted required content and action", async () => {
+  const candidates = buildCanvasCandidates({ title: "Test brief", audience: "Test audience", goal: "Review provided facts", facts: "Known facts only", metrics: "Count | 1", risks: "No stated risks", actions: "Review" });
+  let final;
+  for await (const event of experimental_composeSpec({
+    catalog: canvasCatalog,
+    candidates,
+    prompt: "Include the required header and one action",
+    evaluate: async ({ questions }) => ({
+      answers: Object.fromEntries(Object.entries(questions).map(([key, question]) => {
+        const choices = Object.keys(question.criteria);
+        return [key, { choice: key === "root" ? choices[0] : choices.includes("omit") ? "omit" : choices[0] }];
+      })),
+    }),
+    maxSteps: 2,
+  })) {
+    if (event.type === "complete") final = event;
+  }
+  assert.equal(final?.stopReason, "finish");
+  assert.ok(final?.spec);
+  assert.equal(canvasCatalog.validate(final.spec).success, true);
+  assert.equal(validateCanvasComposition(final.spec), false);
 });
 
 test("official composer rejects evaluator choices outside the catalog", async () => {

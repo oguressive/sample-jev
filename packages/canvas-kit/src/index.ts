@@ -1,6 +1,6 @@
 import { defineCatalog, type Experimental_CompositionCandidate } from "@json-render/core";
 import { schema } from "@json-render/react/schema";
-import type { CanvasInput } from "@sample-jev/contracts";
+import type { CanvasInput, CanvasSpec } from "@sample-jev/contracts";
 import { z } from "zod";
 
 export const canvasCatalog = defineCatalog(schema, {
@@ -45,6 +45,18 @@ export const canvasCatalog = defineCatalog(schema, {
 
 function lines(value: string, limit: number) {
   return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, limit);
+}
+
+export function validateCanvasComposition(spec: unknown): spec is CanvasSpec {
+  const validation = canvasCatalog.validate(spec);
+  if (!validation.success || !validation.data) return false;
+
+  const elements = Object.values(validation.data.elements);
+  return (
+    elements.filter((element) => element.type === "Canvas").length === 1 &&
+    elements.filter((element) => element.type === "BriefHeader").length === 1 &&
+    elements.filter((element) => element.type === "ActionBar").length === 1
+  );
 }
 
 export function buildCanvasCandidates(input: CanvasInput): Experimental_CompositionCandidate[] {
