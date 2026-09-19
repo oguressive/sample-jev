@@ -43,10 +43,7 @@ export function decideStackFit(answers: StackFitAnswers) {
   const reasons: string[] = [];
   let recommended: StackKey;
 
-  if (answers.static_dominance.noul >= 0.68 && answers.seo_need.score >= 1.5) {
-    recommended = "astro";
-    reasons.push("公開コンテンツの静的比率が高く、必要な対話部分だけをIsland化できる");
-  } else if (
+  if (
     answers.audience.choice === "public_indexed" &&
     answers.seo_need.score >= 2.2 &&
     answers.server_rendering_value.score >= 2 &&
@@ -54,6 +51,9 @@ export function decideStackFit(answers: StackFitAnswers) {
   ) {
     recommended = "nextjs";
     reasons.push("公開・SEO・サーバーレンダリング・サーバー依存の条件が同時に強い");
+  } else if (answers.static_dominance.noul >= 0.68 && answers.seo_need.score >= 1.5) {
+    recommended = "astro";
+    reasons.push("公開コンテンツの静的比率が高く、必要な対話部分だけをIsland化できる");
   } else if (
     answers.server_rendering_value.score >= 1.6 &&
     answers.seo_need.score >= 1.2
@@ -107,6 +107,7 @@ export function decideRelease(answers: ReleaseAnswers) {
   if (answers.release_order_dependency.noul >= 0.55) flags.push("リリース順依存の可能性");
   if (answers.rollback_quality.score < 1.5) flags.push("ロールバック計画が弱い");
   if (answers.validation_evidence.score < 1.8) flags.push("検証証拠が不足");
+  if (answers.blast_radius.score >= 1.8) flags.push("影響範囲が広い");
   if (confidence < 0.55) flags.push("モデル確信度が低い");
 
   let verdict: ReleaseVerdict = "safe";
@@ -241,7 +242,8 @@ export function decideTrust(answers: TrustAnswers) {
   if (
     answers.imminent_risk.noul >= 0.45 ||
     confidence < 0.58 ||
-    (["self_harm", "violence"] as string[]).includes(answers.category.choice)
+    answers.category.choice === "self_harm" ||
+    answers.category.choice === "violence"
   ) {
     verdict = "escalate";
   } else if (
@@ -361,7 +363,11 @@ export function decideProgramMatch(answers: ProgramAnswers) {
   let verdict: "strong_fit" | "possible_fit" | "not_fit" | "human_review" = "possible_fit";
   if (answers.eligibility_conflict.noul >= 0.76 || answers.mission_match.score < 0.75) {
     verdict = "not_fit";
-  } else if (answers.downside_risk.score >= 2.2 || confidence < 0.56) {
+  } else if (
+    answers.eligibility_conflict.noul >= 0.55 ||
+    answers.downside_risk.score >= 2.2 ||
+    confidence < 0.56
+  ) {
     verdict = "human_review";
   } else if (
     answers.mission_match.score >= 2.2 &&

@@ -45,6 +45,18 @@ test("Stack Fit selects Next.js only when all public SSR conditions are strong",
   assert.equal(decision.recommended, "nextjs");
 });
 
+test("Stack Fit prioritizes full SSR requirements over static dominance", () => {
+  const decision = decideStackFit({
+    audience: choice("public_indexed"),
+    seo_need: score(2.7),
+    static_dominance: { noul: 0.8 },
+    server_rendering_value: score(2.5),
+    complex_server_dependencies: { noul: 0.8 },
+    portability_priority: score(0.8),
+  });
+  assert.equal(decision.recommended, "nextjs");
+});
+
 test("Release Sentinel holds a critical change without a rollback", () => {
   const decision = decideRelease({
     blast_radius: score(2.5),
@@ -55,6 +67,19 @@ test("Release Sentinel holds a critical change without a rollback", () => {
     release_order_dependency: { noul: 0.7 },
   });
   assert.equal(decision.verdict, "hold");
+});
+
+test("Release Sentinel explains a review caused by broad blast radius", () => {
+  const decision = decideRelease({
+    blast_radius: score(1.8),
+    critical_surface: choice("none"),
+    schema_change: { noul: 0.1 },
+    rollback_quality: score(2.5),
+    validation_evidence: score(2.5),
+    release_order_dependency: { noul: 0.1 },
+  });
+  assert.equal(decision.verdict, "review");
+  assert.ok(decision.flags.includes("影響範囲が広い"));
 });
 
 test("Experiment Gate requires review for a high-harm sensitive experiment", () => {
@@ -112,4 +137,15 @@ test("Program Match rejects an explicit eligibility conflict", () => {
     downside_risk: score(0.6),
   });
   assert.equal(decision.verdict, "not_fit");
+});
+
+test("Program Match cannot return strong fit with a possible eligibility conflict", () => {
+  const decision = decideProgramMatch({
+    mission_match: score(2.5),
+    eligibility_conflict: { noul: 0.55 },
+    evidence_strength: score(2.2),
+    delivery_readiness: score(2.1),
+    downside_risk: score(0.6),
+  });
+  assert.equal(decision.verdict, "human_review");
 });
