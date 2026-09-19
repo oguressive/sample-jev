@@ -1,13 +1,21 @@
 import {
   cleanText,
+  createRequestRateLimiter,
   createJevClient,
   readJsonObject,
   requestDeadline,
   safeErrorResponse,
+  validateSystemAnswers,
 } from "@sample-jev/jev-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 20;
+const parsedRateLimit = Number.parseInt(process.env.JEV_EVALUATION_RATE_LIMIT ?? "20", 10);
+const limitRequest = createRequestRateLimiter({
+  limit: Number.isFinite(parsedRateLimit) && parsedRateLimit > 0 ? parsedRateLimit : 20,
+  trustProxy: process.env.JEV_TRUST_PROXY === "true",
+});
 
 const optionCriteria = {
   a: "Option A is clearly stronger on this dimension.",
@@ -16,6 +24,9 @@ const optionCriteria = {
 } as const;
 
 export async function POST(request: Request): Promise<Response> {
+  const rateLimitResponse = limitRequest(request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const raw = await readJsonObject(request);
     const state = {
@@ -77,10 +88,19 @@ export async function POST(request: Request): Promise<Response> {
       },
       { signal: requestDeadline() },
     );
+    const answers = validateSystemAnswers<Record<DimensionKey, ComparisonAnswer>>(
+      result.answers,
+      Object.fromEntries(
+        dimensions.map((key) => [
+          key,
+          { type: "choice", choices: ["a", "b", "tie"] },
+        ]),
+      ),
+    );
 
     return Response.json(
       {
-        answers: result.answers,
+        answers,
         model: result.model,
         usage: result.usage,
       },
@@ -90,3 +110,18 @@ export async function POST(request: Request): Promise<Response> {
     return safeErrorResponse(error);
   }
 }
+
+const dimensions = [
+  "goal_fit",
+  "time_to_value",
+  "reversibility",
+  "user_impact",
+  "operational_simplicity",
+  "downside_risk",
+] as const;
+type DimensionKey = typeof dimensions[number];
+type ComparisonAnswer = {
+  choice: "a" | "b" | "tie";
+  confidence: number;
+  probabilities: Record<string, number>;
+};

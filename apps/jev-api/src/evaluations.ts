@@ -33,6 +33,7 @@ import {
   cleanText,
   createJevClient,
   requestDeadline,
+  validateSystemAnswers,
 } from "@sample-jev/jev-server";
 
 export class EvaluationInputError extends Error {
@@ -120,7 +121,14 @@ export async function evaluateStackFit(value: unknown) {
     },
     { signal: requestDeadline() },
   );
-  const answers = result.answers as StackFitAnswers;
+  const answers = validateSystemAnswers<StackFitAnswers>(result.answers, {
+    audience: { type: "choice", choices: ["public_indexed", "authenticated", "internal"] },
+    seo_need: { type: "score" },
+    static_dominance: { type: "noul" },
+    server_rendering_value: { type: "score" },
+    complex_server_dependencies: { type: "noul" },
+    portability_priority: { type: "score" },
+  });
   return { answers, decision: decideStackFit(answers), model: result.model, usage: result.usage };
 }
 
@@ -174,7 +182,14 @@ export async function evaluateRelease(value: unknown) {
     },
     { signal: requestDeadline() },
   );
-  const answers = result.answers as ReleaseAnswers;
+  const answers = validateSystemAnswers<ReleaseAnswers>(result.answers, {
+    blast_radius: { type: "score" },
+    critical_surface: { type: "choice", choices: ["none", "auth", "payments", "pii"] },
+    schema_change: { type: "noul" },
+    rollback_quality: { type: "score" },
+    validation_evidence: { type: "score" },
+    release_order_dependency: { type: "noul" },
+  });
   return { answers, decision: decideRelease(answers), model: result.model, usage: result.usage };
 }
 
@@ -228,7 +243,14 @@ export async function evaluateExperiment(value: unknown) {
     },
     { signal: requestDeadline() },
   );
-  const answers = result.answers as ExperimentAnswers;
+  const answers = validateSystemAnswers<ExperimentAnswers>(result.answers, {
+    falsifiable_hypothesis: { type: "noul" },
+    metric_alignment: { type: "score" },
+    harm_risk: { type: "score" },
+    reversibility: { type: "score" },
+    guardrail_present: { type: "noul" },
+    sensitive_domain: { type: "choice", choices: ["none", "minors", "health_finance", "other_sensitive"] },
+  });
   return { answers, decision: decideExperiment(answers), model: result.model, usage: result.usage };
 }
 
@@ -281,7 +303,13 @@ export async function evaluateClaim(value: unknown) {
     },
     { signal: requestDeadline() },
   );
-  const answers = result.answers as ClaimAnswers;
+  const answers = validateSystemAnswers<ClaimAnswers>(result.answers, {
+    evidence_support: { type: "score" },
+    claim_strength: { type: "choice", choices: ["descriptive", "comparative", "absolute"] },
+    regulated_domain: { type: "choice", choices: ["none", "health", "finance", "legal"] },
+    omission_risk: { type: "score" },
+    evidence_match: { type: "noul" },
+  });
   return { answers, decision: decideClaim(answers), model: result.model, usage: result.usage };
 }
 
@@ -329,7 +357,13 @@ export async function evaluateTrust(value: unknown) {
     },
     { signal: requestDeadline() },
   );
-  const answers = result.answers as TrustAnswers;
+  const answers = validateSystemAnswers<TrustAnswers>(result.answers, {
+    category: { type: "choice", choices: ["safe", "harassment", "self_harm", "violence", "scam"] },
+    severity: { type: "score" },
+    targeted_person: { type: "noul" },
+    imminent_risk: { type: "noul" },
+    context_ambiguity: { type: "score" },
+  });
   return { answers, decision: decideTrust(answers), model: result.model, usage: result.usage };
 }
 
@@ -379,7 +413,13 @@ export async function evaluateIncident(value: unknown) {
     },
     { signal: requestDeadline() },
   );
-  const answers = result.answers as IncidentAnswers;
+  const answers = validateSystemAnswers<IncidentAnswers>(result.answers, {
+    domain: { type: "choice", choices: ["availability", "data", "security", "performance"] },
+    urgency: { type: "score" },
+    blast_radius: { type: "score" },
+    customer_visible: { type: "noul" },
+    evidence_quality: { type: "score" },
+  });
   return { answers, decision: decideIncident(answers), model: result.model, usage: result.usage };
 }
 
@@ -434,7 +474,13 @@ export async function evaluateProgramMatch(value: unknown) {
     },
     { signal: requestDeadline() },
   );
-  const answers = result.answers as ProgramAnswers;
+  const answers = validateSystemAnswers<ProgramAnswers>(result.answers, {
+    mission_match: { type: "score" },
+    eligibility_conflict: { type: "noul" },
+    evidence_strength: { type: "score" },
+    delivery_readiness: { type: "score" },
+    downside_risk: { type: "score" },
+  });
   return { answers, decision: decideProgramMatch(answers), model: result.model, usage: result.usage };
 }
 
@@ -458,13 +504,21 @@ export async function composeCanvas(value: unknown) {
       { state: JSON.stringify(request.state), questions: request.questions },
       { signal: request.signal },
     );
+    const answers = validateSystemAnswers<Record<string, { choice: string; confidence: number }>>(
+      result.answers,
+      Object.fromEntries(
+        Object.entries(request.questions).map(([key, question]) => [
+          key,
+          { type: "choice", choices: Object.keys(question.criteria) },
+        ]),
+      ),
+    );
     model = result.model;
     inputTokens += result.usage.input_tokens;
     outputTokens += result.usage.output_tokens;
     return {
-      answers: Object.fromEntries(Object.entries(result.answers).map(([key, answer]) => {
-        const choice = answer as { choice: string; confidence?: number };
-        return [key, { choice: choice.choice, confidence: choice.confidence }];
+      answers: Object.fromEntries(Object.entries(answers).map(([key, answer]) => {
+        return [key, { choice: answer.choice, confidence: answer.confidence }];
       })),
       usage: { inputTokens: result.usage.input_tokens },
     };

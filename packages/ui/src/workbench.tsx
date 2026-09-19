@@ -84,12 +84,19 @@ export function DecisionWorkbench<TField extends string, TResult extends object>
         body: JSON.stringify(values),
         signal: controller.signal,
       });
-      const data = (await response.json()) as TResult | { error?: string };
-      if (!response.ok) {
-        throw new Error("error" in data && data.error ? data.error : "判定に失敗しました。");
+      const data = await response.json() as unknown;
+      const responseObject = data && typeof data === "object"
+        ? data as Record<string, unknown>
+        : null;
+      if (!response.ok || !responseObject || !("decision" in responseObject)) {
+        throw new Error(
+          typeof responseObject?.error === "string"
+            ? responseObject.error
+            : "判定に失敗しました。",
+        );
       }
       if (activeRequest.current !== controller) return;
-      setResult(data as TResult);
+      setResult(responseObject as TResult);
     } catch (cause) {
       if (controller.signal.aborted || activeRequest.current !== controller) return;
       setError(cause instanceof Error ? cause.message : "判定に失敗しました。");

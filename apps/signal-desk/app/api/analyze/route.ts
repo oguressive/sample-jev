@@ -1,15 +1,26 @@
 import {
   cleanText,
+  createRequestRateLimiter,
   createJevClient,
   readJsonObject,
   requestDeadline,
   safeErrorResponse,
+  validateSystemAnswers,
 } from "@sample-jev/jev-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 20;
+const parsedRateLimit = Number.parseInt(process.env.JEV_EVALUATION_RATE_LIMIT ?? "20", 10);
+const limitRequest = createRequestRateLimiter({
+  limit: Number.isFinite(parsedRateLimit) && parsedRateLimit > 0 ? parsedRateLimit : 20,
+  trustProxy: process.env.JEV_TRUST_PROXY === "true",
+});
 
 export async function POST(request: Request): Promise<Response> {
+  const rateLimitResponse = limitRequest(request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await readJsonObject(request);
     const message = cleanText(body.message, 6_000);
@@ -66,8 +77,14 @@ export async function POST(request: Request): Promise<Response> {
       { signal: requestDeadline() },
     );
 
-    const department = result.answers.department;
-    const refund = result.answers.refund_requested.noul;
+    const answers = validateSystemAnswers<AnalysisAnswers>(result.answers, {
+      department: { type: "choice", choices: ["billing", "technical", "account", "other"] },
+      urgency: { type: "score" },
+      refund_requested: { type: "noul" },
+      tone: { type: "choice", choices: ["calm", "concerned", "angry"] },
+    });
+    const department = answers.department;
+    const refund = answers.refund_requested.noul;
     const needsReview =
       department.confidence < 0.62 ||
       department.choice === "other" ||
@@ -77,7 +94,7 @@ export async function POST(request: Request): Promise<Response> {
       {
         route: needsReview ? "human_review" : department.choice,
         rule: needsReview ? "human_review" : "auto_route",
-        answers: result.answers,
+        answers,
         model: result.model,
         usage: result.usage,
       },
@@ -87,3 +104,10 @@ export async function POST(request: Request): Promise<Response> {
     return safeErrorResponse(error);
   }
 }
+
+type AnalysisAnswers = {
+  department: { choice: "billing" | "technical" | "account" | "other"; confidence: number; probabilities: Record<string, number> };
+  urgency: { score: number; confidence: number; probabilities: Record<string, number> };
+  refund_requested: { noul: number };
+  tone: { choice: "calm" | "concerned" | "angry"; confidence: number; probabilities: Record<string, number> };
+};

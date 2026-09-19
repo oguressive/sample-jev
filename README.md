@@ -86,7 +86,8 @@ The browser never provides Jev question definitions. Evaluation routes own fixed
 - `.env`, `.env.local`, and every `.env.*` file except `.env.example` are ignored.
 - Inputs, credentials, and upstream error bodies are not logged or returned to the browser.
 - The API accepts only fixed evaluation routes and enforces request-size and field-length limits.
-- Canvas composition is limited per client in memory (`JEV_COMPOSE_RATE_LIMIT`, default 5 requests/minute). Use an external distributed limiter for multi-instance production deployments; enable `JEV_TRUST_PROXY` only behind a trusted proxy that replaces `X-Forwarded-For`.
+- Evaluation routes are limited in memory (`JEV_EVALUATION_RATE_LIMIT`, default 20 requests/minute); canvas composition has a stricter additional limit (`JEV_COMPOSE_RATE_LIMIT`, default 5). Use an external distributed limiter for multi-instance production deployments; enable `JEV_TRUST_PROXY` only behind a trusted proxy that replaces `X-Forwarded-For`.
+- The shared API binds to `127.0.0.1` by default. Set `HOST=0.0.0.0` only when intentional network exposure is protected by deployment-level access controls.
 - CI builds and policy tests require no API key; a key is required only for a live evaluation call.
 
 ## API routes
