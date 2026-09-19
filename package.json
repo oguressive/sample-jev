@@ -1,0 +1,21 @@
+{
+  "name": "sample-jev",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:signal": "npm run dev --workspace=@sample-jev/signal-desk",
+    "dev:issue": "npm run dev --workspace=@sample-jev/issue-gate",
+    "dev:decision": "npm run dev --workspace=@sample-jev/decision-arena",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run typecheck && npm run build"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

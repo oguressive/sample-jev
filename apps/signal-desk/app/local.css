@@ -1,0 +1,9 @@
+.privacy-note { margin: 15px 3px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.tone-line { display: grid; grid-template-columns: 1fr auto; gap: 4px 18px; align-items: baseline; margin-top: 24px; padding: 16px; border-radius: 14px; background: var(--accent-soft); }
+.tone-line span { color: var(--muted); font: 700 10px ui-monospace, monospace; text-transform: uppercase; letter-spacing: .12em; }
+.tone-line strong { font: 600 24px Georgia, serif; }
+.tone-line small { grid-column: 2; color: var(--muted); font: 700 10px ui-monospace, monospace; }
+
+@media (max-width: 760px) {
+  .result-panel { min-height: 430px; }
+}
