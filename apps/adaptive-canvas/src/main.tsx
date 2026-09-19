@@ -17,6 +17,7 @@ const sample: CanvasInput = {
   actions: "土曜日の担当を決める\n道具の使い方を共有する\n収穫会の日程を確認する",
 };
 const labels: Record<keyof CanvasInput, string> = { title: "タイトル", audience: "誰に見せる？", goal: "画面で何を伝えたい？", facts: "確認済みの事実", metrics: "数値（1行に ラベル | 値）", risks: "懸念（1行に1件）", actions: "次の作業（1行に1件）" };
+const maxLengths: Record<keyof CanvasInput, number> = { title: 160, audience: 300, goal: 700, facts: 2500, metrics: 1000, risks: 1500, actions: 1500 };
 
 function App() {
   const [input, setInput] = useState(sample);
@@ -68,7 +69,7 @@ function App() {
     }
   }
   return <AppShell index="11" eyebrow="Generative UI / your components, composed by Jev" title="Adaptive Canvas" description="伝えたい内容と相手を入力すると、Jevが表示する部品と配置を選びます。用意した文章と数値を使って、あなたのためのブリーフを組み立てます。">
-    <div className="canvas-workspace"><Panel label="Brief ingredients"><form onSubmit={submit}>{(Object.keys(labels) as Array<keyof CanvasInput>).map((key) => <label className="field" key={key}><span>{labels[key]}</span><textarea required maxLength={key === "title" ? 160 : key === "audience" ? 300 : key === "goal" ? 700 : 1500} className="compact-textarea" value={input[key]} onChange={(event) => update(key, event.target.value)} /></label>)}{error && <ErrorBanner message={error} />}<button className="analyze-button" disabled={busy}>{busy ? "COMPOSING…" : "COMPOSE MY CANVAS"} ↗</button></form></Panel>
+    <div className="canvas-workspace"><Panel label="Brief ingredients"><form onSubmit={submit}>{(Object.keys(labels) as Array<keyof CanvasInput>).map((key) => <label className="field" key={key}><span>{labels[key]}</span><textarea required maxLength={maxLengths[key]} className="compact-textarea" value={input[key]} onChange={(event) => update(key, event.target.value)} /></label>)}{error && <ErrorBanner message={error} />}<button className="analyze-button" disabled={busy}>{busy ? "COMPOSING…" : "COMPOSE MY CANVAS"} ↗</button></form></Panel>
     <section aria-live="polite"><div className="canvas-stage-label">YOUR CANVAS {result && <span>{Math.round(elapsed)} ms · API往復（描画時間を含まない）</span>}</div>{result ? <><JSONUIProvider key={elapsed} registry={registry} handlers={{ review: () => setStatus("確認済みにしました。この画面内だけの状態です。"), share: async (params) => { try { await navigator.clipboard.writeText(String(params.title)); setStatus("タイトルをコピーしました。"); } catch { setStatus("コピーできませんでした。画面から選択してコピーしてください。"); } }, investigate: () => setStatus("調査メモ：証拠を集める → 不明点を確認する → 次の作業を決める") }}><Renderer registry={registry} spec={result.spec} loading={busy} /></JSONUIProvider>{status && <p className="static-note">{status}</p>}{result.trace.stopReason !== "finish" && <ErrorBanner message="途中までの構成です。再実行してください。" />}<details className="canvas-debug"><summary>構成結果を見る</summary><p>Jev処理：{Math.round(result.trace.elapsedMs)} ms / {result.trace.steps.length} evaluations / {result.model}</p><pre>{JSON.stringify(result.spec, null, 2)}</pre></details></> : <div className="canvas-empty"><span>＋</span><h2>Your content.<br />A different perspective.</h2><p>左側の内容から、独自のコンポーネントで画面を構成します。</p></div>}</section></div>
   </AppShell>;
 }

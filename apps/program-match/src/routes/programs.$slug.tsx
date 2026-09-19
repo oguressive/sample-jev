@@ -27,6 +27,12 @@ const sample = {
   evidence: "昨夏の救急搬送件数、歩行者アンケート42件、商店会3店舗の協力意向がある。",
   delivery: "第1月に共同設計、第2月に3地点へ設置、第3月に利用数と体感温度を公開評価する。",
 };
+const fields = [
+  { key: "project", label: "提案", maxLength: 2500 },
+  { key: "beneficiaries", label: "受益者・協働先", maxLength: 1500 },
+  { key: "evidence", label: "課題の証拠", maxLength: 2000 },
+  { key: "delivery", label: "90日の実行計画", maxLength: 1500 },
+] as const;
 
 function ProgramDetail() {
   const { id, program } = Route.useLoaderData();
@@ -74,7 +80,7 @@ function ProgramAssessment({ id, program }: { id: ProgramId; program: (typeof PR
       </Panel>
       <Panel label="Project fit">
         <form onSubmit={submit}>
-          {(["project", "beneficiaries", "evidence", "delivery"] as const).map((key) => <label className="field" key={key}><span className="field-heading"><span>{{ project: "提案", beneficiaries: "受益者・協働先", evidence: "課題の証拠", delivery: "90日の実行計画" }[key]}</span></span><textarea className="compact-textarea" value={values[key]} onChange={(event) => update(key, event.target.value)} /></label>)}
+          {fields.map(({ key, label, maxLength }) => <label className="field" key={key}><span className="field-heading"><span>{label}</span></span><textarea required maxLength={maxLength} className="compact-textarea" value={values[key]} onChange={(event) => update(key, event.target.value)} /></label>)}
           {error ? <ErrorBanner message={error} /> : null}
           <button className="analyze-button" type="submit" disabled={busy}><span>{busy ? "MATCHING…" : "CHECK FIT"}</span><span>↗</span></button>
         </form>

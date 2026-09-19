@@ -106,12 +106,12 @@ function IncidentForm() {
       <Panel label="Incident packet">
         <form onSubmit={submit}>
           {([
-            ["summary", "概要"], ["observed", "観測した挙動"], ["impact", "現在の影響"],
-            ["telemetry", "テレメトリ・証拠"], ["mitigations", "実施済みの緩和策"],
-          ] as const).map(([key, label]) => (
+            ["summary", "概要", 2000], ["observed", "観測した挙動", 2000], ["impact", "現在の影響", 1500],
+            ["telemetry", "テレメトリ・証拠", 2000], ["mitigations", "実施済みの緩和策", 1500],
+          ] as const).map(([key, label, maxLength]) => (
             <label className="field" key={key}>
               <span className="field-heading"><span>{label}</span></span>
-              <textarea className="compact-textarea" value={values[key]} maxLength={2000} disabled={mutation.isPending} onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />
+              <textarea required className="compact-textarea" value={values[key]} maxLength={maxLength} disabled={mutation.isPending} onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />
             </label>
           ))}
           <div className="sample-row">
