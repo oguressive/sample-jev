@@ -108,6 +108,19 @@ textarea:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px
 
 footer { display: flex; justify-content: space-between; gap: 20px; padding: 34px 0 44px; color: var(--muted); font: 650 10px ui-monospace, monospace; text-transform: uppercase; letter-spacing: .1em; }
 
+.compact-textarea { min-height: 96px; }
+.privacy-note, .policy-note { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 14px 2px 0; }
+.sticky-result { position: sticky; top: 18px; }
+.all-clear { border: 1px solid color-mix(in srgb, #22864a 32%, var(--line)); background: #edf8f0; color: #176538; padding: 14px; border-radius: 13px; font-size: 13px; }
+.verdict p { margin: 9px 0 0; color: rgba(255,255,255,.66); font-size: 12px; line-height: 1.45; }
+.signal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.signal-card { border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: rgba(255,255,255,.54); }
+.signal-card span { display: block; color: var(--muted); font: 700 10px ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; }
+.signal-card strong { display: block; margin-top: 7px; font: 600 22px/1 Georgia, serif; overflow-wrap: anywhere; }
+.static-note { padding: 18px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--accent-soft) 45%, white); }
+.static-note h2 { margin: 0 0 8px; font: 600 24px/1.05 Georgia, serif; }
+.static-note p { margin: 0; color: var(--muted); line-height: 1.65; font-size: 13px; }
+
 @media (max-width: 760px) {
   .shell { width: min(100% - 22px, 620px); }
   .hero { grid-template-columns: 1fr; gap: 18px; padding: 46px 0 38px; }
@@ -115,5 +128,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 34px
   .workspace { grid-template-columns: 1fr; }
   .metric-grid { grid-template-columns: 1fr; }
   .metric + .metric { border-left: 0; border-top: 1px solid var(--line); }
+  .sticky-result { position: static; }
+  .signal-grid { grid-template-columns: 1fr; }
   footer { flex-direction: column; }
 }

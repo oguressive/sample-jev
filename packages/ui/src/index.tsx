@@ -10,6 +10,11 @@ const apps: NavApp[] = [
   { label: "Signal Desk", href: "http://localhost:3000", port: "3000" },
   { label: "Issue Gate", href: "http://localhost:3001", port: "3001" },
   { label: "Decision Arena", href: "http://localhost:3002", port: "3002" },
+  { label: "Stack Fit", href: "http://localhost:3003", port: "3003" },
+  { label: "Release Sentinel", href: "http://localhost:3004", port: "3004" },
+  { label: "Experiment Gate", href: "http://localhost:3005", port: "3005" },
+  { label: "Claim Guard", href: "http://localhost:3006", port: "3006" },
+  { label: "Trust Queue", href: "http://localhost:3007", port: "3007" },
 ];
 
 export function AppShell({

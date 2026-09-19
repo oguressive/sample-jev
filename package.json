@@ -11,9 +11,17 @@
     "dev:signal": "npm run dev --workspace=@sample-jev/signal-desk",
     "dev:issue": "npm run dev --workspace=@sample-jev/issue-gate",
     "dev:decision": "npm run dev --workspace=@sample-jev/decision-arena",
+    "dev:api": "npm run dev --workspace=@sample-jev/jev-api",
+    "dev:stack": "npm run dev --workspace=@sample-jev/stack-fit",
+    "dev:release": "npm run dev --workspace=@sample-jev/release-sentinel",
+    "dev:experiment": "npm run dev --workspace=@sample-jev/experiment-gate",
+    "dev:claim": "npm run dev --workspace=@sample-jev/claim-guard",
+    "dev:trust": "npm run dev --workspace=@sample-jev/trust-queue",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "check": "npm run typecheck && npm run build"
+    "test": "npm run test --workspaces --if-present",
+    "secret-scan": "prefix=tsai; pem='PRIVATE KEY'; pattern=\"${prefix}_[A-Za-z0-9_-]{12,}|-----BEGIN .*${pem}-----\"; if git grep -nE \"$pattern\" -- ':!package-lock.json'; then echo 'Potential secret detected'; exit 1; fi",
+    "check": "npm run typecheck && npm run test && npm run build && npm run secret-scan"
   },
   "engines": {
     "node": ">=20.9.0"

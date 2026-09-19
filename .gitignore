@@ -12,6 +12,8 @@ out/
 
 # test and build output
 coverage/
+dist/
+.astro/
 *.tsbuildinfo
 
 # editor / OS
