@@ -51,6 +51,7 @@ function boundedNumber(value: unknown, minimum: number, maximum: number): value 
 function validProbabilities(value: unknown): boolean {
   const probabilities = recordValue(value);
   return probabilities !== null &&
+    Object.keys(probabilities).length > 0 &&
     Object.values(probabilities).every((probability) => boundedNumber(probability, 0, 1));
 }
 
@@ -78,7 +79,13 @@ export function validateSystemAnswers<T>(
     }
 
     if (shape.type === "choice") {
-      if (typeof answer.choice !== "string" || !shape.choices.includes(answer.choice)) {
+      const probabilities = recordValue(answer.probabilities);
+      if (
+        typeof answer.choice !== "string" ||
+        !shape.choices.includes(answer.choice) ||
+        !probabilities ||
+        !shape.choices.every((choice) => Object.hasOwn(probabilities, choice))
+      ) {
         throw new JevAnswerValidationError();
       }
     } else if (!boundedNumber(answer.score, shape.minimum ?? 0, shape.maximum ?? 3)) {
