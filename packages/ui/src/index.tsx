@@ -15,6 +15,9 @@ const apps: NavApp[] = [
   { label: "Experiment Gate", href: "http://localhost:3005", port: "3005" },
   { label: "Claim Guard", href: "http://localhost:3006", port: "3006" },
   { label: "Trust Queue", href: "http://localhost:3007", port: "3007" },
+  { label: "Incident Navigator", href: "http://localhost:3008", port: "3008" },
+  { label: "Program Match", href: "http://localhost:3009", port: "3009" },
+  { label: "Adaptive Canvas", href: "http://localhost:3010", port: "3010" },
 ];
 
 export function AppShell({
@@ -43,7 +46,8 @@ export function AppShell({
               className={String(itemIndex + 1).padStart(2, "0") === index ? "active" : ""}
               href={app.href}
               key={app.port}
-              title={`Local port ${app.port}`}
+              title={`${app.label} · Local port ${app.port}`}
+              aria-label={app.label}
             >
               {String(itemIndex + 1).padStart(2, "0")}
             </a>

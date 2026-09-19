@@ -7,15 +7,18 @@ import { secureHeaders } from "hono/secure-headers";
 import { safeErrorResponse } from "@sample-jev/jev-server";
 import {
   EvaluationInputError,
+  composeCanvas,
   evaluateClaim,
   evaluateExperiment,
+  evaluateIncident,
+  evaluateProgramMatch,
   evaluateRelease,
   evaluateStackFit,
   evaluateTrust,
 } from "./evaluations.js";
 
 const app = new Hono();
-const defaultOrigins = [3003, 3004, 3005, 3006, 3007].flatMap((port) => [
+const defaultOrigins = [3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010].flatMap((port) => [
   `http://localhost:${port}`,
   `http://127.0.0.1:${port}`,
 ]);
@@ -72,6 +75,9 @@ app.post("/v1/release-sentinel/evaluate", evaluationRoute(evaluateRelease));
 app.post("/v1/experiment-gate/evaluate", evaluationRoute(evaluateExperiment));
 app.post("/v1/claim-guard/evaluate", evaluationRoute(evaluateClaim));
 app.post("/v1/trust-queue/evaluate", evaluationRoute(evaluateTrust));
+app.post("/v1/incident-navigator/evaluate", evaluationRoute(evaluateIncident));
+app.post("/v1/program-match/evaluate", evaluationRoute(evaluateProgramMatch));
+app.post("/v1/adaptive-canvas/compose", evaluationRoute(composeCanvas));
 
 app.notFound((c) => c.json({ error: "Not found." }, 404));
 
