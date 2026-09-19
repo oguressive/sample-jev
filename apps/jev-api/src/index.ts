@@ -1,10 +1,12 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { safeErrorResponse } from "@sample-jev/jev-server";
+import { createFixedWindowRateLimiter } from "./rate-limit.js";
 import {
   EvaluationInputError,
   composeCanvas,
@@ -28,6 +30,23 @@ const allowedOrigins = new Set(
     .map((origin) => origin.trim())
     .filter(Boolean),
 );
+const parsedComposeLimit = Number.parseInt(process.env.JEV_COMPOSE_RATE_LIMIT ?? "5", 10);
+const composeLimit = Number.isFinite(parsedComposeLimit) && parsedComposeLimit > 0
+  ? parsedComposeLimit
+  : 5;
+const takeComposeRequest = createFixedWindowRateLimiter({
+  limit: composeLimit,
+  windowMs: 60_000,
+});
+const trustProxy = process.env.JEV_TRUST_PROXY === "true";
+
+function requestClientKey(c: Context): string {
+  if (trustProxy) {
+    const forwardedAddress = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+    if (forwardedAddress) return forwardedAddress;
+  }
+  return getConnInfo(c).remote.address ?? "unknown";
+}
 
 app.use("*", secureHeaders());
 app.use(
@@ -46,6 +65,21 @@ app.use(
     onError: (c) => c.json({ error: "Request body is too large." }, 413),
   }),
 );
+app.use("/v1/adaptive-canvas/compose", async (c, next) => {
+  if (c.req.method === "OPTIONS") return next();
+
+  const decision = takeComposeRequest(requestClientKey(c));
+  c.header("RateLimit-Limit", String(decision.limit));
+  c.header("RateLimit-Remaining", String(decision.remaining));
+  if (!decision.allowed) {
+    c.header("Retry-After", String(decision.retryAfterSeconds));
+    return c.json(
+      { error: "Too many canvas composition requests. Please try again later." },
+      429,
+    );
+  }
+  return next();
+});
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 

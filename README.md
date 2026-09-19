@@ -86,6 +86,7 @@ The browser never provides Jev question definitions. Evaluation routes own fixed
 - `.env`, `.env.local`, and every `.env.*` file except `.env.example` are ignored.
 - Inputs, credentials, and upstream error bodies are not logged or returned to the browser.
 - The API accepts only fixed evaluation routes and enforces request-size and field-length limits.
+- Canvas composition is limited per client in memory (`JEV_COMPOSE_RATE_LIMIT`, default 5 requests/minute). Use an external distributed limiter for multi-instance production deployments; enable `JEV_TRUST_PROXY` only behind a trusted proxy that replaces `X-Forwarded-For`.
 - CI builds and policy tests require no API key; a key is required only for a live evaluation call.
 
 ## API routes
@@ -110,7 +111,7 @@ Program Match uses TanStack Start to SSR the public directory and `/programs/$sl
 
 Adaptive Canvas implements the pattern demonstrated in the supplied Chris Tate post with an original garden-brief design. It uses `experimental_composeSpec` from the installed, pinned `@json-render/core@0.21.0` with a custom evaluator backed by the TypeSafe SDK. The documentation still described the APIs as unreleased when checked; the installed package exports them. No AI Gateway key is required.
 
-The server builds atomic candidates from the supplied facts and the shared `@sample-jev/canvas-kit` catalog. Jev chooses the root, membership, and sibling order; the official composer validates the tree. The renderer maps that spec to seven app-owned components. Actions are limited to local acknowledgement, copying a title, and opening a local investigation note. Jev cannot invent prose, execute JavaScript, or call arbitrary endpoints. The composer is experimental and its exact version is pinned. The current HTTP route returns the completed snapshot rather than streaming intermediate previews; partial completion is labelled. Displayed timings are measured API round-trip and composition durations, not a promise of millisecond rendering or a comparison against the video.
+The server builds atomic candidates from the supplied facts and the shared `@sample-jev/canvas-kit` catalog. Jev chooses the root, membership, and sibling order; the official composer validates the tree, and the server additionally requires exactly one prepared header and one safe local action before returning it. The renderer maps that spec to seven app-owned components. Actions are limited to local acknowledgement, copying a title, and opening a local investigation note. Jev cannot invent prose, execute JavaScript, or call arbitrary endpoints. The composer is experimental and its exact version is pinned. The current HTTP route returns the completed snapshot rather than streaming intermediate previews; partial completion is labelled. Displayed timings are measured API round-trip and composition durations, not a promise of millisecond rendering or a comparison against the video.
 
 The catalog and composer tests use a deterministic fake evaluator to check structural validation and rejection of out-of-catalog choices. Live TypeSafe latency and judgment quality require a real key and were not measured.
 
