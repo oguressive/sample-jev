@@ -1,4 +1,4 @@
-import { useState, type SubmitEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import type { StackFitResponse, StackKey } from "@sample-jev/contracts";
 import {
   AnalyzeButton,
@@ -65,30 +65,52 @@ export function StackFitForm({ apiBaseUrl }: { apiBaseUrl: string }) {
   const [result, setResult] = useState<StackFitResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const activeRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => activeRequest.current?.abort(), []);
+
+  function changeForm(nextForm: FormState) {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setBusy(false);
+    setError("");
+    setResult(null);
+    setForm(nextForm);
+  }
 
   function update(key: keyof FormState, value: string) {
-    setForm((current) => ({ ...current, [key]: value }));
+    changeForm({ ...form, [key]: value });
   }
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setBusy(true);
     setError("");
+    setResult(null);
     try {
       const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/v1/stack-fit/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
+        signal: controller.signal,
       });
       const data = (await response.json()) as StackFitResponse | { error?: string };
       if (!response.ok || !("decision" in data)) {
         throw new Error("error" in data && data.error ? data.error : "判定に失敗しました。");
       }
+      if (activeRequest.current !== controller) return;
       setResult(data);
     } catch (cause) {
+      if (controller.signal.aborted || activeRequest.current !== controller) return;
       setError(cause instanceof Error ? cause.message : "判定に失敗しました。");
     } finally {
-      setBusy(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -102,7 +124,7 @@ export function StackFitForm({ apiBaseUrl }: { apiBaseUrl: string }) {
           <Field label="レンダリング要件"><textarea className="compact-textarea" value={form.rendering} maxLength={1200} onChange={(e) => update("rendering", e.target.value)} /></Field>
           <Field label="ホスティング制約"><textarea className="compact-textarea" value={form.hosting} maxLength={1200} onChange={(e) => update("hosting", e.target.value)} /></Field>
           <div className="sample-row">
-            {samples.map((sample) => <button className="sample-chip" type="button" key={sample.label} onClick={() => setForm(sample.values)}>{sample.label}</button>)}
+            {samples.map((sample) => <button className="sample-chip" type="button" key={sample.label} onClick={() => changeForm(sample.values)}>{sample.label}</button>)}
           </div>
           {error ? <ErrorBanner message={error} /> : null}
           <AnalyzeButton busy={busy}>FIND THE FIT</AnalyzeButton>

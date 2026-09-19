@@ -1,4 +1,4 @@
-import { useState, type SubmitEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { PROGRAMS, type ProgramId, type ProgramResponse } from "@sample-jev/contracts";
 import { ErrorBanner, Metric, Panel, ProbabilityBar, ResultMeta } from "@sample-jev/ui";
@@ -38,15 +38,31 @@ function ProgramAssessment({ id, program }: { id: ProgramId; program: (typeof PR
   const [result, setResult] = useState<ProgramResponse | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const activeRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => activeRequest.current?.abort(), []);
+  function update(key: keyof typeof values, value: string) {
+    activeRequest.current?.abort(); activeRequest.current = null;
+    setBusy(false); setError(""); setResult(null);
+    setValues((current) => ({ ...current, [key]: value }));
+  }
   async function submit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError("");
+    event.preventDefault();
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    setBusy(true); setError(""); setResult(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/v1/program-match/evaluate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ programId: id, ...values }) });
+      const response = await fetch(`${apiBaseUrl}/v1/program-match/evaluate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ programId: id, ...values }), signal: controller.signal });
       const data = await response.json() as ProgramResponse | { error?: string };
       if (!response.ok) throw new Error("error" in data && data.error ? data.error : "判定に失敗しました。");
+      if (activeRequest.current !== controller) return;
       setResult(data as ProgramResponse);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "判定に失敗しました。"); }
-    finally { setBusy(false); }
+    } catch (cause) {
+      if (controller.signal.aborted || activeRequest.current !== controller) return;
+      setError(cause instanceof Error ? cause.message : "判定に失敗しました。");
+    } finally {
+      if (activeRequest.current === controller) { activeRequest.current = null; setBusy(false); }
+    }
   }
   const verdicts = { strong_fit: "Strong fit", possible_fit: "Possible fit", not_fit: "Not fit", human_review: "Human review" } as const;
   return (
@@ -58,7 +74,7 @@ function ProgramAssessment({ id, program }: { id: ProgramId; program: (typeof PR
       </Panel>
       <Panel label="Project fit">
         <form onSubmit={submit}>
-          {(["project", "beneficiaries", "evidence", "delivery"] as const).map((key) => <label className="field" key={key}><span className="field-heading"><span>{{ project: "提案", beneficiaries: "受益者・協働先", evidence: "課題の証拠", delivery: "90日の実行計画" }[key]}</span></span><textarea className="compact-textarea" value={values[key]} onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} /></label>)}
+          {(["project", "beneficiaries", "evidence", "delivery"] as const).map((key) => <label className="field" key={key}><span className="field-heading"><span>{{ project: "提案", beneficiaries: "受益者・協働先", evidence: "課題の証拠", delivery: "90日の実行計画" }[key]}</span></span><textarea className="compact-textarea" value={values[key]} onChange={(event) => update(key, event.target.value)} /></label>)}
           {error ? <ErrorBanner message={error} /> : null}
           <button className="analyze-button" type="submit" disabled={busy}><span>{busy ? "MATCHING…" : "CHECK FIT"}</span><span>↗</span></button>
         </form>

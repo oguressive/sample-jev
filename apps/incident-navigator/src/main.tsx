@@ -15,7 +15,15 @@ import { AppShell, ErrorBanner, Metric, Panel, ProbabilityBar, ResultMeta } from
 import "@sample-jev/ui/styles.css";
 
 type RouterContext = { queryClient: QueryClient };
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: false } } });
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: Infinity,
+      retry: false,
+    },
+  },
+});
 const apiBaseUrl = import.meta.env.VITE_JEV_API_URL ?? "http://localhost:8787";
 
 const samples = {
@@ -103,12 +111,12 @@ function IncidentForm() {
           ] as const).map(([key, label]) => (
             <label className="field" key={key}>
               <span className="field-heading"><span>{label}</span></span>
-              <textarea className="compact-textarea" value={values[key]} maxLength={2000} onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />
+              <textarea className="compact-textarea" value={values[key]} maxLength={2000} disabled={mutation.isPending} onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />
             </label>
           ))}
           <div className="sample-row">
-            <button className="sample-chip" type="button" onClick={() => setValues(samples.saturation)}>性能劣化</button>
-            <button className="sample-chip" type="button" onClick={() => setValues(samples.suspicious)}>不審なアクセス</button>
+            <button className="sample-chip" type="button" disabled={mutation.isPending} onClick={() => setValues(samples.saturation)}>性能劣化</button>
+            <button className="sample-chip" type="button" disabled={mutation.isPending} onClick={() => setValues(samples.suspicious)}>不審なアクセス</button>
           </div>
           {mutation.error ? <ErrorBanner message={mutation.error.message} /> : null}
           <button className="analyze-button" type="submit" disabled={mutation.isPending}>

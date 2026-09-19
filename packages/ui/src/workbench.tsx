@@ -1,4 +1,4 @@
-import { useState, type ReactNode, type SubmitEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type SubmitEvent } from "react";
 import {
   AnalyzeButton,
   AppShell,
@@ -56,26 +56,48 @@ export function DecisionWorkbench<TField extends string, TResult extends object>
   const [result, setResult] = useState<TResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const activeRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => activeRequest.current?.abort(), []);
+
+  function inputChanged(nextValues: Record<TField, string>) {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setBusy(false);
+    setError("");
+    setResult(null);
+    setValues(nextValues);
+  }
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setBusy(true);
     setError("");
+    setResult(null);
     try {
       const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
+        signal: controller.signal,
       });
       const data = (await response.json()) as TResult | { error?: string };
       if (!response.ok) {
         throw new Error("error" in data && data.error ? data.error : "判定に失敗しました。");
       }
+      if (activeRequest.current !== controller) return;
       setResult(data as TResult);
     } catch (cause) {
+      if (controller.signal.aborted || activeRequest.current !== controller) return;
       setError(cause instanceof Error ? cause.message : "判定に失敗しました。");
     } finally {
-      setBusy(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -91,21 +113,21 @@ export function DecisionWorkbench<TField extends string, TResult extends object>
                     type="text"
                     value={values[field.key]}
                     maxLength={field.maxLength}
-                    onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                    onChange={(event) => inputChanged({ ...values, [field.key]: event.target.value })}
                   />
                 ) : (
                   <textarea
                     className="compact-textarea"
                     value={values[field.key]}
                     maxLength={field.maxLength}
-                    onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                    onChange={(event) => inputChanged({ ...values, [field.key]: event.target.value })}
                   />
                 )}
               </Field>
             ))}
             <div className="sample-row" aria-label="サンプル入力">
               {samples.map((sample) => (
-                <button className="sample-chip" type="button" key={sample.label} onClick={() => setValues(sample.values)}>
+                <button className="sample-chip" type="button" key={sample.label} onClick={() => inputChanged(sample.values)}>
                   {sample.label}
                 </button>
               ))}

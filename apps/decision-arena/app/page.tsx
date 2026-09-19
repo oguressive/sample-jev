@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AnalyzeButton,
   AppShell,
@@ -54,6 +54,7 @@ export default function DecisionArena() {
   );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const activeRequest = useRef<AbortController | null>(null);
 
   const decision = useMemo(() => {
     if (!analysis) return null;
@@ -71,29 +72,50 @@ export default function DecisionArena() {
     } as const;
   }, [analysis, weights]);
 
+  useEffect(() => () => activeRequest.current?.abort(), []);
+
+  function changeForm(nextForm: typeof form) {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setBusy(false);
+    setError("");
+    setAnalysis(null);
+    setForm(nextForm);
+  }
+
   function update(key: keyof typeof form, value: string) {
-    setForm((current) => ({ ...current, [key]: value }));
+    changeForm({ ...form, [key]: value });
   }
 
   async function analyze(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setBusy(true);
     setError("");
+    setAnalysis(null);
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
+        signal: controller.signal,
       });
       const data = (await response.json()) as Analysis | { error?: string };
       if (!response.ok || !("answers" in data)) {
         throw new Error("error" in data ? data.error : "判定に失敗しました。");
       }
+      if (activeRequest.current !== controller) return;
       setAnalysis(data);
     } catch (cause) {
+      if (controller.signal.aborted || activeRequest.current !== controller) return;
       setError(cause instanceof Error ? cause.message : "判定に失敗しました。");
     } finally {
-      setBusy(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -122,8 +144,8 @@ export default function DecisionArena() {
               <textarea className="short-textarea" value={form.constraints} maxLength={2000} onChange={(e) => update("constraints", e.target.value)} />
             </Field>
             <div className="sample-row">
-              <button className="sample-chip" type="button" onClick={() => setForm(sample)}>デモ企画</button>
-              <button className="sample-chip" type="button" onClick={() => setForm(alternate)}>PR運用</button>
+              <button className="sample-chip" type="button" onClick={() => changeForm(sample)}>デモ企画</button>
+              <button className="sample-chip" type="button" onClick={() => changeForm(alternate)}>PR運用</button>
             </div>
             {error ? <ErrorBanner message={error} /> : null}
             <AnalyzeButton busy={busy}>RUN SIX JUDGMENTS</AnalyzeButton>

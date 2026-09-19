@@ -1,7 +1,7 @@
-import { StrictMode, useMemo, useState, type SubmitEvent } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState, type SubmitEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { defineRegistry, JSONUIProvider, Renderer } from "@json-render/react";
-import { canvasCatalog } from "@sample-jev/canvas-kit";
+import { canvasCatalog, validateCanvasComposition } from "@sample-jev/canvas-kit";
 import type { CanvasInput, CanvasResponse } from "@sample-jev/contracts";
 import { AppShell, ErrorBanner, Panel } from "@sample-jev/ui";
 import "@sample-jev/ui/styles.css";
@@ -25,6 +25,7 @@ function App() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const activeRequest = useRef<AbortController | null>(null);
   const { registry } = useMemo(() => defineRegistry(canvasCatalog, {
     components: {
       Canvas: ({ props, children }) => <div className={`canvas-surface layout-${props.layout} density-${props.density}`}>{children}</div>,
@@ -39,20 +40,35 @@ function App() {
       review: async () => {}, share: async () => {}, investigate: async () => {},
     },
   }), []);
+  useEffect(() => () => activeRequest.current?.abort(), []);
+  function update(key: keyof CanvasInput, value: string) {
+    activeRequest.current?.abort(); activeRequest.current = null;
+    setBusy(false); setError(""); setStatus(""); setResult(null); setElapsed(0);
+    setInput((current) => ({ ...current, [key]: value }));
+  }
   async function submit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError(""); setStatus("");
+    event.preventDefault();
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    setBusy(true); setError(""); setStatus(""); setResult(null); setElapsed(0);
     const start = performance.now();
     try {
-      const response = await fetch(`${import.meta.env.VITE_JEV_API_URL ?? "http://localhost:8787"}/v1/adaptive-canvas/compose`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+      const response = await fetch(`${import.meta.env.VITE_JEV_API_URL ?? "http://localhost:8787"}/v1/adaptive-canvas/compose`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input), signal: controller.signal });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "画面を構成できませんでした。");
-      if (!canvasCatalog.validate(data.spec).success) throw new Error("画面の検証に失敗しました。");
+      if (!validateCanvasComposition(data.spec)) throw new Error("画面の検証に失敗しました。");
+      if (activeRequest.current !== controller) return;
       setResult(data); setElapsed(performance.now() - start);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "通信に失敗しました。"); }
-    finally { setBusy(false); }
+    } catch (cause) {
+      if (controller.signal.aborted || activeRequest.current !== controller) return;
+      setError(cause instanceof Error ? cause.message : "通信に失敗しました。");
+    } finally {
+      if (activeRequest.current === controller) { activeRequest.current = null; setBusy(false); }
+    }
   }
   return <AppShell index="11" eyebrow="Generative UI / your components, composed by Jev" title="Adaptive Canvas" description="伝えたい内容と相手を入力すると、Jevが表示する部品と配置を選びます。用意した文章と数値を使って、あなたのためのブリーフを組み立てます。">
-    <div className="canvas-workspace"><Panel label="Brief ingredients"><form onSubmit={submit}>{(Object.keys(labels) as Array<keyof CanvasInput>).map((key) => <label className="field" key={key}><span>{labels[key]}</span><textarea required maxLength={key === "title" ? 160 : key === "audience" ? 300 : key === "goal" ? 700 : 1500} className="compact-textarea" value={input[key]} onChange={(event) => setInput({ ...input, [key]: event.target.value })} /></label>)}{error && <ErrorBanner message={error} />}<button className="analyze-button" disabled={busy}>{busy ? "COMPOSING…" : "COMPOSE MY CANVAS"} ↗</button></form></Panel>
+    <div className="canvas-workspace"><Panel label="Brief ingredients"><form onSubmit={submit}>{(Object.keys(labels) as Array<keyof CanvasInput>).map((key) => <label className="field" key={key}><span>{labels[key]}</span><textarea required maxLength={key === "title" ? 160 : key === "audience" ? 300 : key === "goal" ? 700 : 1500} className="compact-textarea" value={input[key]} onChange={(event) => update(key, event.target.value)} /></label>)}{error && <ErrorBanner message={error} />}<button className="analyze-button" disabled={busy}>{busy ? "COMPOSING…" : "COMPOSE MY CANVAS"} ↗</button></form></Panel>
     <section aria-live="polite"><div className="canvas-stage-label">YOUR CANVAS {result && <span>{Math.round(elapsed)} ms · API往復（描画時間を含まない）</span>}</div>{result ? <><JSONUIProvider key={elapsed} registry={registry} handlers={{ review: () => setStatus("確認済みにしました。この画面内だけの状態です。"), share: async (params) => { try { await navigator.clipboard.writeText(String(params.title)); setStatus("タイトルをコピーしました。"); } catch { setStatus("コピーできませんでした。画面から選択してコピーしてください。"); } }, investigate: () => setStatus("調査メモ：証拠を集める → 不明点を確認する → 次の作業を決める") }}><Renderer registry={registry} spec={result.spec} loading={busy} /></JSONUIProvider>{status && <p className="static-note">{status}</p>}{result.trace.stopReason !== "finish" && <ErrorBanner message="途中までの構成です。再実行してください。" />}<details className="canvas-debug"><summary>構成結果を見る</summary><p>Jev処理：{Math.round(result.trace.elapsedMs)} ms / {result.trace.steps.length} evaluations / {result.model}</p><pre>{JSON.stringify(result.spec, null, 2)}</pre></details></> : <div className="canvas-empty"><span>＋</span><h2>Your content.<br />A different perspective.</h2><p>左側の内容から、独自のコンポーネントで画面を構成します。</p></div>}</section></div>
   </AppShell>;
 }
