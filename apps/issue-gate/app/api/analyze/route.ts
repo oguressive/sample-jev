@@ -1,18 +1,29 @@
 import {
   cleanText,
+  createRequestRateLimiter,
   createJevClient,
+  readJsonObject,
   requestDeadline,
   safeErrorResponse,
+  validateSystemAnswers,
 } from "@sample-jev/jev-server";
+import { decideIssueReadiness } from "./policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type Input = Record<"title" | "environment" | "steps" | "expected" | "actual", unknown>;
+export const maxDuration = 20;
+const parsedRateLimit = Number.parseInt(process.env.JEV_EVALUATION_RATE_LIMIT ?? "20", 10);
+const limitRequest = createRequestRateLimiter({
+  limit: Number.isFinite(parsedRateLimit) && parsedRateLimit > 0 ? parsedRateLimit : 20,
+  trustProxy: process.env.JEV_TRUST_PROXY === "true",
+});
 
 export async function POST(request: Request): Promise<Response> {
+  const rateLimitResponse = limitRequest(request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
-    const raw = (await request.json()) as Partial<Input>;
+    const raw = await readJsonObject(request);
     const state = {
       title: cleanText(raw.title, 300),
       environment: cleanText(raw.environment, 1_000),
@@ -86,29 +97,19 @@ export async function POST(request: Request): Promise<Response> {
       { signal: requestDeadline() },
     );
 
-    const answers = result.answers;
-    const readiness =
-      (answers.reproducibility.score / 3) * 0.35 +
-      answers.expected_present.noul * 0.2 +
-      answers.actual_present.noul * 0.2 +
-      answers.sufficient_context.noul * 0.25;
-
-    const missing: string[] = [];
-    if (answers.reproducibility.score < 1.8) missing.push("再現手順を、開始条件から順番に書く");
-    if (answers.expected_present.noul < 0.7) missing.push("期待した結果を1文で明記する");
-    if (answers.actual_present.noul < 0.7) missing.push("実際に起きた症状・エラーを明記する");
-    if (answers.sufficient_context.noul < 0.65) missing.push("発生環境・頻度・直前の操作を補う");
-
-    const ready =
-      readiness >= 0.72 &&
-      answers.category.choice !== "other" &&
-      answers.category.confidence >= 0.5;
+    const answers = validateSystemAnswers<IssueAnswers>(result.answers, {
+      category: { type: "choice", choices: ["bug", "feature", "question", "other"] },
+      reproducibility: { type: "score" },
+      expected_present: { type: "noul" },
+      actual_present: { type: "noul" },
+      sufficient_context: { type: "noul" },
+      impact: { type: "score" },
+    });
+    const decision = decideIssueReadiness(answers);
 
     return Response.json(
       {
-        verdict: ready ? "ready" : "needs_context",
-        readiness,
-        missing,
+        ...decision,
         answers,
         model: result.model,
         usage: result.usage,
@@ -119,3 +120,12 @@ export async function POST(request: Request): Promise<Response> {
     return safeErrorResponse(error);
   }
 }
+
+type IssueAnswers = {
+  category: { choice: "bug" | "feature" | "question" | "other"; confidence: number; probabilities: Record<string, number> };
+  reproducibility: { score: number; confidence: number; probabilities: Record<string, number> };
+  expected_present: { noul: number };
+  actual_present: { noul: number };
+  sufficient_context: { noul: number };
+  impact: { score: number; confidence: number; probabilities: Record<string, number> };
+};

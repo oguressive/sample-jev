@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   AnalyzeButton,
   AppShell,
@@ -73,28 +73,50 @@ export default function SignalDesk() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const activeRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => activeRequest.current?.abort(), []);
+
+  function changeMessage(value: string) {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setBusy(false);
+    setError("");
+    setAnalysis(null);
+    setMessage(value);
+  }
 
   async function analyze(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setBusy(true);
     setError("");
+    setAnalysis(null);
 
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
+        signal: controller.signal,
       });
       const data = (await response.json()) as Analysis | { error?: string };
 
       if (!response.ok || !("answers" in data)) {
         throw new Error("error" in data ? data.error : "判定に失敗しました。");
       }
+      if (activeRequest.current !== controller) return;
       setAnalysis(data);
     } catch (cause) {
+      if (controller.signal.aborted || activeRequest.current !== controller) return;
       setError(cause instanceof Error ? cause.message : "判定に失敗しました。");
     } finally {
-      setBusy(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -112,7 +134,7 @@ export default function SignalDesk() {
               <textarea
                 value={message}
                 maxLength={6000}
-                onChange={(event) => setMessage(event.target.value)}
+                onChange={(event) => changeMessage(event.target.value)}
                 aria-label="問い合わせ本文"
               />
             </Field>
@@ -122,7 +144,7 @@ export default function SignalDesk() {
                   className="sample-chip"
                   type="button"
                   key={sample.label}
-                  onClick={() => setMessage(sample.value)}
+                  onClick={() => changeMessage(sample.value)}
                 >
                   {sample.label}
                 </button>

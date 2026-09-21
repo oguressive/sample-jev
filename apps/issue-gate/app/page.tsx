@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   AnalyzeButton,
   AppShell,
@@ -64,30 +64,52 @@ export default function IssueGate() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const activeRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => activeRequest.current?.abort(), []);
+
+  function changeForm(nextForm: typeof form) {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setBusy(false);
+    setError("");
+    setAnalysis(null);
+    setForm(nextForm);
+  }
 
   function update(key: keyof typeof form, value: string) {
-    setForm((current) => ({ ...current, [key]: value }));
+    changeForm({ ...form, [key]: value });
   }
 
   async function analyze(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setBusy(true);
     setError("");
+    setAnalysis(null);
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
+        signal: controller.signal,
       });
       const data = (await response.json()) as Analysis | { error?: string };
       if (!response.ok || !("answers" in data)) {
         throw new Error("error" in data ? data.error : "判定に失敗しました。");
       }
+      if (activeRequest.current !== controller) return;
       setAnalysis(data);
     } catch (cause) {
+      if (controller.signal.aborted || activeRequest.current !== controller) return;
       setError(cause instanceof Error ? cause.message : "判定に失敗しました。");
     } finally {
-      setBusy(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -119,8 +141,8 @@ export default function IssueGate() {
               </Field>
             </div>
             <div className="sample-row">
-              <button className="sample-chip" type="button" onClick={() => setForm(completeSample)}>具体的なIssue</button>
-              <button className="sample-chip" type="button" onClick={() => setForm(vagueSample)}>曖昧なIssue</button>
+              <button className="sample-chip" type="button" onClick={() => changeForm(completeSample)}>具体的なIssue</button>
+              <button className="sample-chip" type="button" onClick={() => changeForm(vagueSample)}>曖昧なIssue</button>
             </div>
             {error ? <ErrorBanner message={error} /> : null}
             <AnalyzeButton busy={busy}>CHECK READINESS</AnalyzeButton>
