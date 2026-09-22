@@ -34,7 +34,7 @@ export async function evaluate(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ position, revision, difficulty, mode }),
-    signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(70_000)]),
   });
   const data = await response.json();
   if (!response.ok)

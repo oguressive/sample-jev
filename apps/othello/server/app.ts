@@ -61,7 +61,7 @@ export function createApp(
     used++;
     const signal = AbortSignal.any([
       c.req.raw.signal,
-      AbortSignal.timeout(25_000),
+      AbortSignal.timeout(65_000),
     ]);
     try {
       return c.json(await evaluate(request, signal));

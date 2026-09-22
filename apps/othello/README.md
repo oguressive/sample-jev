@@ -6,7 +6,7 @@ A standalone Japanese Othello experiment. All nonterminal move judgment comes fr
 
 From the repository root, run `npm install`, copy `apps/othello/.env.example` to `apps/othello/.env`, and set the API key in that ignored file. Run `npm run dev:othello:api` and `npm run dev:othello` in separate terminals. Open **http://127.0.0.1:3011** (not localhost, which is a different origin). Without a key the UI, records, import/export and settings work; CPU judgment pauses with an actionable error.
 
-The API binds only to loopback port 8788. Vite proxies `/api` to it. Public hosting is intentionally not configured: add authentication, a same-origin reverse proxy, HTTPS and a persistent per-user spending/rate budget before exposing this paid endpoint. The local process allows 2 concurrent requests and 60 requests/minute globally, a 16KB request body, a 25s request deadline, and no SDK retries. The TypeSafe upstream URL is fixed. Secrets are never requested from the browser or returned in error messages. `VITE_` variables must never contain a key.
+The API binds only to loopback port 8788. Vite proxies `/api` to it. Public hosting is intentionally not configured: add authentication, a same-origin reverse proxy, HTTPS and a persistent per-user spending/rate budget before exposing this paid endpoint. The local process allows 2 concurrent requests and 60 requests/minute globally, a 16KB request body, a 65s request deadline, and no SDK retries. The TypeSafe upstream URL is fixed. Secrets are never requested from the browser or returned in error messages. `VITE_` variables must never contain a key.
 
 ## Play and revisit
 

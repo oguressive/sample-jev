@@ -136,7 +136,7 @@ export function makeEvaluator(
           },
           questions,
         },
-        { signal, timeout: 20_000, retry: { maxRetries: 0 } },
+        { signal, timeout: 60_000, retry: { maxRetries: 0 } },
       );
       calls++;
       model = response.model;
