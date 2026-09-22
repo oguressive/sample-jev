@@ -1,0 +1,11 @@
+{
+  "name": "othello",
+  "owned": [
+    "apps/othello/",
+    "packages/othello-core/",
+    "packages/othello-server/",
+    "docs/othello/",
+    ".harness/othello.json"
+  ],
+  "manifest": "docs/othello/change-scope.json"
+}
