@@ -52,6 +52,14 @@ const context = await browser.newContext({
   acceptDownloads: true,
 });
 const page = await context.newPage();
+await page.addInitScript(() => {
+  window.__othelloSounds = 0;
+  const original = AudioContext.prototype.createOscillator;
+  AudioContext.prototype.createOscillator = function (...args) {
+    window.__othelloSounds++;
+    return original.apply(this, args);
+  };
+});
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
 let calls = 0,
@@ -197,6 +205,7 @@ try {
   await until(async () => (await disks()) === 5);
   await page.getByRole("button", { name: /背景・音・動きの設定/ }).click();
   await page.getByRole("dialog").waitFor();
+  await page.getByRole("checkbox", { name: /着手音/ }).check();
   await page
     .getByRole("button", { name: /夜の余韻/ })
     .nth(1)
@@ -205,6 +214,20 @@ try {
     .getByRole("button", { name: "設定を閉じる", exact: true })
     .last()
     .click();
+  holdNext = true;
+  await page.locator(".board .square:not(:disabled)").first().click();
+  await until(() => Boolean(release));
+  const soundsBeforeMute = await page.evaluate(() => window.__othelloSounds);
+  await page.getByRole("button", { name: /背景・音・動きの設定/ }).click();
+  await page.getByRole("checkbox", { name: /着手音/ }).uncheck();
+  await page
+    .getByRole("button", { name: "設定を閉じる", exact: true })
+    .last()
+    .click();
+  release();
+  release = undefined;
+  await until(async () => (await disks()) === 7);
+  const soundsAfterMute = await page.evaluate(() => window.__othelloSounds);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: `${output}/mobile-game.png`, fullPage: true });
   assert.equal(
@@ -234,19 +257,23 @@ try {
   await until(async () => (await rows()).length === countBeforeDelete);
   // File import is validated and cannot overwrite an existing game.
   const exported = (await rows())[0];
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "roundtrip.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(exported)),
-    });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "roundtrip.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(exported)),
+  });
   await until(async () => (await rows()).length === countBeforeDelete + 1);
   const failureContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
   });
   const failurePage = await failureContext.newPage();
+  const quotaErrors = [];
+  failurePage.on("pageerror", (error) => quotaErrors.push(error.message));
   await failurePage.addInitScript(() => {
+    const original = IDBObjectStore.prototype.put;
+    window.__othelloAllowWrites = () => {
+      IDBObjectStore.prototype.put = original;
+    };
     IDBObjectStore.prototype.put = function () {
       throw new DOMException("Storage quota test", "QuotaExceededError");
     };
@@ -265,7 +292,28 @@ try {
     .getByRole("button", { name: "棋譜を書き出す", exact: true })
     .click();
   assert.ok((await rescueDownload).suggestedFilename().endsWith(".json"));
+  await failurePage.evaluate(() => window.__othelloAllowWrites());
+  await failurePage
+    .getByRole("button", { name: "D3 合法手", exact: true })
+    .click();
+  await failurePage.getByText("自動保存済み", { exact: true }).waitFor();
+  await failurePage.waitForTimeout(100);
   await failureContext.close();
+  console.log(
+    JSON.stringify({
+      reviewRegression: { soundsBeforeMute, soundsAfterMute, quotaErrors },
+    }),
+  );
+  assert.equal(
+    soundsAfterMute,
+    soundsBeforeMute,
+    "muting during inference must silence the pending CPU move",
+  );
+  assert.deepEqual(
+    quotaErrors,
+    [],
+    "handled save failure must not leak an unhandled queue rejection",
+  );
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
@@ -284,6 +332,8 @@ try {
         "themes",
         "stats",
         "delete/restore",
+        "mute during CPU inference",
+        "quota failure recovery without unhandled rejection",
       ],
       screenshots: output,
     }),

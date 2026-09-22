@@ -99,6 +99,7 @@ export function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const audio = useRef<AudioContext | null>(null);
+  const soundEnabled = useRef(settings.sound);
   const pending = useRef(0);
   const lastWriteFailed = useRef(false);
   const failedWrites = useRef(new Map<string, number>());
@@ -227,6 +228,7 @@ export function App() {
   }
   function updateSettings(update: Partial<Settings>) {
     const next = { ...settings, ...update };
+    soundEnabled.current = next.sound;
     setSettings(next);
     try {
       saveSettings(next);
@@ -279,10 +281,11 @@ export function App() {
     navigate("play");
   }
   function sound() {
-    if (!settings.sound) return;
+    // CPU callbacks may outlive the render that started their request.
+    if (!soundEnabled.current) return;
     try {
       const ctx = (audio.current ??= new AudioContext());
-      void ctx.resume();
+      void ctx.resume().catch(() => {});
       const oscillator = ctx.createOscillator(),
         gain = ctx.createGain();
       oscillator.frequency.value = 320;

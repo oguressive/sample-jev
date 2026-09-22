@@ -44,8 +44,13 @@ async function transaction<T>(
 // Serialize writes (including deletes), so a slow old transaction cannot undo a new move.
 let queue = Promise.resolve();
 function write(action: () => Promise<unknown>) {
-  const task = queue.catch(() => {}).then(action);
-  queue = task.then(() => {});
+  const task = queue.then(action);
+  // Observe both branches on the internal queue immediately. The original task
+  // still rejects for the caller, while later writes can recover normally.
+  queue = task.then(
+    () => {},
+    () => {},
+  );
   return task;
 }
 export const saveGame = (game: Game) =>
