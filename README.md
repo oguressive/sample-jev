@@ -1,6 +1,6 @@
 # sample-jev
 
-Eleven small TypeScript applications that use Jev for structured judgment and catalog-constrained UI composition.
+Twelve TypeScript applications that use Jev for structured judgment, catalog-constrained UI composition, and game decisions.
 
 ## Applications
 
@@ -17,8 +17,21 @@ Eleven small TypeScript applications that use Jev for structured judgment and ca
 | 09 | Incident Navigator | `http://localhost:3008` | TanStack Router + Query | Operational triage routed to a code-owned runbook |
 | 10 | Program Match | `http://localhost:3009` | TanStack Start | SSR program directory with project-fit evaluation |
 | 11 | Adaptive Canvas | `http://localhost:3010` | json-render + React | Jev selects component candidates and their order |
+| 12 | RE:VERSI | `http://127.0.0.1:3011` | Vite + React + isolated Hono API | Jev-only Othello, weighted move evaluations, saved games and replay |
 
-The eight non-Next.js applications use a shared Hono API on `http://localhost:8787`.
+The eight earlier non-Next.js applications use a shared Hono API on `http://localhost:8787`. Othello has its own loopback API on port 8788 and does not change those applications.
+
+### Othello
+
+```bash
+cp apps/othello/.env.example apps/othello/.env
+# Set the key only in the ignored apps/othello/.env file.
+npm run dev:othello:api
+# In another terminal:
+npm run dev:othello
+```
+
+Open `http://127.0.0.1:3011`. See [Othello usage and verification](apps/othello/README.md). Goat is the strongest configured Jev selection mode, not a verified world-class engine. No paid live inference is part of automated tests.
 
 ## Why multiple frameworks?
 

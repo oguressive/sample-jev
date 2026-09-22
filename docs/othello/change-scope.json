@@ -1,11 +1,8 @@
 {
-  "base": "aa9a022e7af22cecbabfdb1bdd6d40752d5b10be",
+  "base": "d79fe07c1a7ce8c89692c4800b7eeed2b7c21a51",
   "sharedChanges": [
-    { "path": "AGENTS.md", "reason": "Add repository-wide scope and secret defaults with Othello-only routing.", "checks": ["Review that no Othello game rules apply to sibling apps"] },
-    { "path": ".agents/skills/workspace-change-safety/SKILL.md", "reason": "Reusable app isolation and shared-consumer verification workflow.", "checks": ["Forward-test on an unrelated app task"] },
-    { "path": "docs/development-harness.md", "reason": "Document reusable guard commands, exceptions and limits.", "checks": ["Execute the documented scope and test commands"] },
-    { "path": "scripts/harness/check-scope.mjs", "reason": "Add dependency-free policy-driven scope and secret checks.", "checks": ["node --test scripts/harness/check-scope.test.mjs"] },
-    { "path": "scripts/harness/check-scope.test.mjs", "reason": "Exercise real git diffs including staged, untracked and renamed files.", "checks": ["node --test scripts/harness/check-scope.test.mjs"] },
-    { "path": ".github/workflows/development-harness.yml", "reason": "Run separate harness checks on PRs; skip Othello policy for unrelated changes.", "checks": ["Review PR head/base handling and read-only permissions", "Run guard with --auto on unrelated-change fixture"] }
+    { "path": "package.json", "reason": "Add opt-in Othello UI and API launch scripts; leave existing scripts unchanged.", "checks": ["npm run check"] },
+    { "path": "package-lock.json", "reason": "Register isolated Othello workspace using existing dependency versions.", "checks": ["npm run check", "Review unrelated dependency churn"] },
+    { "path": "README.md", "reason": "Add Othello entry and local launch instructions without changing other apps.", "checks": ["Review documented scripts and no private links"] }
   ]
 }

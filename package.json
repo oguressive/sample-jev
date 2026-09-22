@@ -8,6 +8,8 @@
     "packages/*"
   ],
   "scripts": {
+    "dev:othello": "npm run dev --workspace=@sample-jev/othello",
+    "dev:othello:api": "npm run dev:api --workspace=@sample-jev/othello",
     "dev:signal": "npm run dev --workspace=@sample-jev/signal-desk",
     "dev:issue": "npm run dev --workspace=@sample-jev/issue-gate",
     "dev:decision": "npm run dev --workspace=@sample-jev/decision-arena",

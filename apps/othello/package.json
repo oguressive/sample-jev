@@ -1,0 +1,29 @@
+{
+  "name": "@sample-jev/othello",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 3011 --strictPort",
+    "dev:api": "node --env-file-if-exists=.env --experimental-strip-types server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:browser": "node --experimental-strip-types tests/browser.smoke.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.0",
+    "@typesafe-ai/sdk": "0.6.0",
+    "hono": "^4.9.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.3.0"
+  }
+}
