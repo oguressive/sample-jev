@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Board } from "./Board.tsx";
-import { evaluate, RequestGate } from "./client.ts";
+import { evaluate, RequestGate, warmup } from "./client.ts";
 import {
   formulaVersion,
   questionVersion,
@@ -83,6 +83,7 @@ export function App() {
   const [ready, setReady] = useState<boolean | null>(null);
   const [busy, setBusy] = useState("");
   const [apiError, setApiError] = useState("");
+  const [coldStart, setColdStart] = useState(true);
   const [retry, setRetry] = useState(0);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [telemetry, setTelemetry] = useState<Analysis["meta"] | null>(null);
@@ -139,7 +140,15 @@ export function App() {
     fetch("/api/health")
       .then((r) => r.json())
       .then((r) => {
-        if (active) setReady(r.ready === true);
+        if (!active) return;
+        setReady(r.ready === true);
+        // Warm Jev while the player picks settings; the server bounds actual upstream calls.
+        if (r.ready === true)
+          warmup()
+            .then((s) => {
+              if (active && s === "warm") setColdStart(false);
+            })
+            .catch(() => {});
       })
       .catch(() => {
         if (active) setReady(false);
@@ -350,6 +359,7 @@ export function App() {
       )
         return;
       setReady(true);
+      setColdStart(false);
       setTelemetry(result.meta);
       setBusy("");
       if (cpu) {
@@ -385,7 +395,7 @@ export function App() {
         current.current = null;
         setGame(null);
       }
-      setNotice("棋譜を削除しました。下の「削除を取り消す」で戻せます。");
+      setNotice("");
     } catch (e) {
       setNotice(describeError(e));
     }
@@ -441,6 +451,7 @@ export function App() {
           token.signal,
         );
         if (!token.current()) return;
+        setColdStart(false);
         void saveAnalysis(cacheKey(result.key), result).catch(() => {});
         const played = result.evaluations.find(
             (e) => e.square === event.square,
@@ -537,18 +548,31 @@ export function App() {
             {storageError && game && (
               <button onClick={() => downloadGame(game)}>棋譜を書き出す</button>
             )}
-            {deleted && (
-              <button
-                onClick={() => {
-                  persist(deleted);
-                  setDeleted(null);
-                  setNotice("削除を取り消しました");
-                }}
-              >
-                削除を取り消す
-              </button>
-            )}
             <button aria-label="通知を閉じる" onClick={() => setNotice("")}>
+              ×
+            </button>
+          </div>
+        )}
+        {deleted && (
+          <div className="notice" role="status">
+            <span>
+              {date(deleted.updatedAt)}の棋譜を削除しました。次の削除か再読み込みまで戻せます。
+            </span>
+            <button
+              onClick={() => {
+                const restored = deleted;
+                setDeleted(null);
+                if (!games.some((row) => row.id === restored.id))
+                  persist(restored);
+                setNotice("削除を取り消しました");
+              }}
+            >
+              削除を取り消す
+            </button>
+            <button
+              aria-label="削除の取り消し表示を閉じる"
+              onClick={() => setDeleted(null)}
+            >
               ×
             </button>
           </div>
@@ -823,6 +847,11 @@ export function App() {
                     <i />
                     <i />
                   </div>
+                )}
+                {busy && coldStart && (
+                  <p className="fine muted" role="status">
+                    初回はJevの起動に30秒ほどかかることがあります。
+                  </p>
                 )}
                 {history.at(-1)?.kind === "pass" && (
                   <p role="status">
