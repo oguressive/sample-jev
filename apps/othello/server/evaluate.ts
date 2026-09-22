@@ -1,10 +1,13 @@
 import { TypeSafeClient, noul, score, type Questions } from "@typesafe-ai/sdk";
 import {
+  batchSize,
   choose,
   composite,
   difficultyProfile,
   formulaVersion,
   questionVersion,
+  upstreamTimeoutMs,
+  warmupTimeoutMs,
   type Analysis,
   type Evaluation,
 } from "../src/core/evaluation.ts";
@@ -71,9 +74,9 @@ export function makeEvaluator(
       model = "deterministic-terminal";
     const profile = difficultyProfile(mode === "move" ? difficulty : "Goat");
     // At most eight candidates per API call, sequentially; no hidden automatic retries.
-    for (let offset = 0; offset < candidates.length; offset += 8) {
+    for (let offset = 0; offset < candidates.length; offset += batchSize) {
       signal.throwIfAborted();
-      const batch = candidates.slice(offset, offset + 8),
+      const batch = candidates.slice(offset, offset + batchSize),
         questions: Questions = {};
       const stateCandidates = [];
       for (const square of batch) {
@@ -103,21 +106,26 @@ export function makeEvaluator(
           `For candidate ${label}, assess the acting player's future tempo advantage: gaining extra turns by forcing opponent passes while avoiding own passes, and useful endgame parity. NOT total disks.`,
           rubric,
         );
-        const replies = legalMoves(after);
+        const replies = legalMoves(after),
+          opponent = opposite(position.turn);
         stateCandidates.push({
           square: label,
           boardAfter: positionKey(after),
           legalReplies: replies.map(coordinate),
+          opponentMustPass: !replies.length,
+          // Mobility = moves a side could make on this board if it were that side's turn.
           actingPlayerMobility: legalMoves(after, position.turn).length,
+          opponentMobility: replies.length,
           ...(profile.replies
             ? {
                 replyFacts: replies.map((s) => {
-                  const next = play(after, s);
+                  const next = play(after, s),
+                    actingMoves = legalMoves(next, position.turn).length;
                   return {
                     reply: coordinate(s),
-                    actingPlayerLegalMoves: legalMoves(next).length,
-                    opponentLegalMoves: legalMoves(next, opposite(next.turn))
-                      .length,
+                    actingPlayerMobility: actingMoves,
+                    opponentMobility: legalMoves(next, opponent).length,
+                    actingPlayerMustPass: !actingMoves,
                     disks: counts(next),
                   };
                 }),
@@ -136,7 +144,7 @@ export function makeEvaluator(
           },
           questions,
         },
-        { signal, timeout: 60_000, retry: { maxRetries: 0 } },
+        { signal, timeout: upstreamTimeoutMs, retry: { maxRetries: 0 } },
       );
       calls++;
       model = response.model;
@@ -182,5 +190,20 @@ export function makeEvaluator(
         questions: questionVersion,
       },
     };
+  };
+}
+// Fixed server-side prompt: the browser can trigger a warmup but never choose its content.
+export function makeWarmupPing(client: Pick<TypeSafeClient, "systemOne">) {
+  return async () => {
+    const response = await client.systemOne(
+      { state: { a: 1, b: 2 }, questions: { smaller: noul("Is a smaller than b?") } },
+      {
+        signal: AbortSignal.timeout(warmupTimeoutMs),
+        timeout: warmupTimeoutMs,
+        retry: { maxRetries: 0 },
+      },
+    );
+    if (response.answers.smaller?.type !== "noul")
+      throw new Error("Invalid warmup response");
   };
 }

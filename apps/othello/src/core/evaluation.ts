@@ -2,7 +2,15 @@ import { counts, legalMoves, positionKey, type Position } from "./rules.ts";
 import { difficulties, type Difficulty } from "./game.ts";
 
 export const formulaVersion = "weighted-v1";
-export const questionVersion = "othello-v1";
+export const questionVersion = "othello-v2";
+export const batchSize = 8;
+export const upstreamTimeoutMs = 60_000;
+export const warmupTimeoutMs = 45_000;
+export const evaluationBatches = (p: Position) =>
+  Math.max(1, Math.ceil(legalMoves(p).length / batchSize));
+// Batches run sequentially, so the route deadline must cover every per-call timeout.
+export const evaluationDeadlineMs = (p: Position) =>
+  evaluationBatches(p) * upstreamTimeoutMs + 5_000;
 export type Evaluation = {
   square: number;
   p: number;

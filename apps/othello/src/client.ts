@@ -1,4 +1,9 @@
-import { validateAnalysis, type Analysis } from "./core/evaluation.ts";
+import {
+  evaluationDeadlineMs,
+  validateAnalysis,
+  warmupTimeoutMs,
+  type Analysis,
+} from "./core/evaluation.ts";
 import type { Difficulty } from "./core/game.ts";
 import type { Position } from "./core/rules.ts";
 
@@ -23,6 +28,14 @@ export class RequestGate {
     };
   }
 }
+// The server may first wait for an in-flight warmup, then runs every batch.
+export const clientDeadlineMs = (position: Position) =>
+  warmupTimeoutMs + evaluationDeadlineMs(position) + 5_000;
+export async function warmup(): Promise<string> {
+  const response = await fetch("/api/warmup", { method: "POST" });
+  const data = await response.json();
+  return typeof data.state === "string" ? data.state : "unknown";
+}
 export async function evaluate(
   position: Position,
   revision: number,
@@ -34,7 +47,10 @@ export async function evaluate(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ position, revision, difficulty, mode }),
-    signal: AbortSignal.any([signal, AbortSignal.timeout(70_000)]),
+    signal: AbortSignal.any([
+      signal,
+      AbortSignal.timeout(clientDeadlineMs(position)),
+    ]),
   });
   const data = await response.json();
   if (!response.ok)
