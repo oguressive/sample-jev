@@ -1,10 +1,17 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { evaluationDeadlineMs } from "../src/core/evaluation.ts";
 import { parseRequest, type Evaluator } from "./evaluate.ts";
+import { createWarmer, type Warmer } from "./warmup.ts";
+
+// At most 60 disks are placed. Hints make every placement one evaluation, and
+// review can add one more per human move. 120 covers both inside one minute.
+export const evaluationsPerMinute = 120;
 
 export function createApp(
   evaluate: Evaluator | null,
   allowedOrigin = "http://127.0.0.1:3011",
+  warmer: Warmer = createWarmer(null),
 ) {
   const app = new Hono();
   let running = 0,
@@ -22,6 +29,7 @@ export function createApp(
   app.get("/api/health", (c) =>
     c.json({ ready: Boolean(evaluate), engine: "Jev", liveVerified: false }),
   );
+  app.post("/api/warmup", (c) => c.json({ state: warmer.request() }));
   app.use(
     "/api/evaluate",
     bodyLimit({
@@ -50,7 +58,7 @@ export function createApp(
       windowStart = Date.now();
       used = 0;
     }
-    if (running >= 2 || used >= 60) {
+    if (running >= 2 || used >= evaluationsPerMinute) {
       c.header("Retry-After", "60");
       return c.json(
         { error: "利用上限です。少し待って再試行してください" },
@@ -59,12 +67,18 @@ export function createApp(
     }
     running++;
     used++;
-    const signal = AbortSignal.any([
-      c.req.raw.signal,
-      AbortSignal.timeout(65_000),
-    ]);
     try {
-      return c.json(await evaluate(request, signal));
+      // Sending a second cold request next to a warming one would not start faster.
+      await warmer.settled(c.req.raw.signal);
+      const result = await evaluate(
+        request,
+        AbortSignal.any([
+          c.req.raw.signal,
+          AbortSignal.timeout(evaluationDeadlineMs(request.position)),
+        ]),
+      );
+      if (result.meta.calls) warmer.markSuccess();
+      return c.json(result);
     } catch {
       return c.json(
         {

@@ -63,12 +63,17 @@ await page.addInitScript(() => {
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
 let calls = 0,
+  warmups = 0,
   failNext = false,
   holdNext = false,
   release;
 await page.route("**/api/health", (route) =>
   route.fulfill({ json: { ready: true } }),
 );
+await page.route("**/api/warmup", (route) => {
+  warmups++;
+  return route.fulfill({ json: { state: "warm" } });
+});
 await page.route("**/api/evaluate", async (route) => {
   calls++;
   const r = route.request().postDataJSON();
@@ -143,6 +148,7 @@ const rows = () =>
 try {
   await page.goto(process.env.OTHELLO_URL || "http://127.0.0.1:3011");
   await page.getByRole("heading", { name: "今日の相手を選ぶ" }).waitFor();
+  await until(async () => warmups === 1);
   await page.screenshot({ path: `${output}/desktop-home.png`, fullPage: true });
   assert.equal(await page.locator(".difficulty-grid button").count(), 8);
   await page.getByRole("button", { name: /対戦をはじめる/ }).click();
@@ -253,8 +259,36 @@ try {
     .first()
     .click();
   await until(async () => (await rows()).length === countBeforeDelete - 1);
-  await button("削除を取り消す").click();
+  await button("元に戻す").click();
   await until(async () => (await rows()).length === countBeforeDelete);
+  // Keeping the deletion must not let a later unrelated notice revive the record.
+  await page
+    .getByRole("button", { name: /の棋譜を削除/ })
+    .first()
+    .click();
+  await until(async () => (await rows()).length === countBeforeDelete - 1);
+  await page.getByText("棋譜を削除しました。").waitFor();
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+  );
+  await page.screenshot({
+    path: `${output}/mobile-delete-banner.png`,
+    fullPage: true,
+  });
+  const redo = (await rows())[0];
+  await page.locator("input[type=file]").setInputFiles({
+    name: "notice.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(redo)),
+  });
+  await page.getByText("棋譜を練習記録として読み込みました").waitFor();
+  // Another notice must not replace or duplicate the restore action.
+  assert.equal(await button("元に戻す").count(), 1);
+  await button("元に戻す").click();
+  await until(async () => (await rows()).length === countBeforeDelete + 1);
   // File import is validated and cannot overwrite an existing game.
   const exported = (await rows())[0];
   await page.locator("input[type=file]").setInputFiles({
@@ -262,7 +296,8 @@ try {
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(exported)),
   });
-  await until(async () => (await rows()).length === countBeforeDelete + 1);
+  await until(async () => (await rows()).length === countBeforeDelete + 2);
+  assert.equal(warmups, 2, "page load and reload each send one warmup hint");
   const failureContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
   });
@@ -270,12 +305,16 @@ try {
   const quotaErrors = [];
   failurePage.on("pageerror", (error) => quotaErrors.push(error.message));
   await failurePage.addInitScript(() => {
-    const original = IDBObjectStore.prototype.put;
+    // Real write failures surface asynchronously: the request errors, then the transaction aborts.
+    const put = IDBObjectStore.prototype.put;
+    let blocked = true;
     window.__othelloAllowWrites = () => {
-      IDBObjectStore.prototype.put = original;
+      blocked = false;
     };
-    IDBObjectStore.prototype.put = function () {
-      throw new DOMException("Storage quota test", "QuotaExceededError");
+    IDBObjectStore.prototype.put = function (value, key) {
+      return blocked && this.name === "games"
+        ? this.add(value, key)
+        : put.call(this, value, key);
     };
   });
   await failurePage.route("**/api/health", (route) =>
@@ -286,6 +325,10 @@ try {
   );
   await failurePage.goto(process.env.OTHELLO_URL || "http://127.0.0.1:3011");
   await failurePage.getByRole("button", { name: /対戦をはじめる/ }).click();
+  await failurePage.getByText("自動保存済み", { exact: true }).waitFor();
+  await failurePage
+    .getByRole("button", { name: "D3 合法手", exact: true })
+    .click();
   await failurePage.getByText("未保存の棋譜あり").waitFor();
   const rescueDownload = failurePage.waitForEvent("download");
   await failurePage
@@ -293,9 +336,7 @@ try {
     .click();
   assert.ok((await rescueDownload).suggestedFilename().endsWith(".json"));
   await failurePage.evaluate(() => window.__othelloAllowWrites());
-  await failurePage
-    .getByRole("button", { name: "D3 合法手", exact: true })
-    .click();
+  await failurePage.getByRole("checkbox", { name: /評価値を表示/ }).check();
   await failurePage.getByText("自動保存済み", { exact: true }).waitFor();
   await failurePage.waitForTimeout(100);
   await failureContext.close();
