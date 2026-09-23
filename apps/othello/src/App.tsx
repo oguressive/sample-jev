@@ -555,26 +555,19 @@ export function App() {
         )}
         {deleted && (
           <div className="notice" role="status">
-            <span>
-              {date(deleted.updatedAt)}の棋譜を削除しました。次の削除か再読み込みまで戻せます。
-            </span>
+            <span>棋譜を削除しました。</span>
             <button
               onClick={() => {
                 const restored = deleted;
                 setDeleted(null);
                 if (!games.some((row) => row.id === restored.id))
                   persist(restored);
-                setNotice("削除を取り消しました");
+                setNotice("棋譜を戻しました");
               }}
             >
-              削除を取り消す
+              元に戻す
             </button>
-            <button
-              aria-label="削除の取り消し表示を閉じる"
-              onClick={() => setDeleted(null)}
-            >
-              ×
-            </button>
+            <button onClick={() => setDeleted(null)}>削除したままにする</button>
           </div>
         )}
         {view === "home" && (
