@@ -4,6 +4,10 @@ import { evaluationDeadlineMs } from "../src/core/evaluation.ts";
 import { parseRequest, type Evaluator } from "./evaluate.ts";
 import { createWarmer, type Warmer } from "./warmup.ts";
 
+// At most 60 disks are placed. Hints make every placement one evaluation, and
+// review can add one more per human move. 120 covers both inside one minute.
+export const evaluationsPerMinute = 120;
+
 export function createApp(
   evaluate: Evaluator | null,
   allowedOrigin = "http://127.0.0.1:3011",
@@ -54,7 +58,7 @@ export function createApp(
       windowStart = Date.now();
       used = 0;
     }
-    if (running >= 2 || used >= 60) {
+    if (running >= 2 || used >= evaluationsPerMinute) {
       c.header("Retry-After", "60");
       return c.json(
         { error: "利用上限です。少し待って再試行してください" },

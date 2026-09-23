@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { createApp } from "../server/app.ts";
+import { createApp, evaluationsPerMinute } from "../server/app.ts";
 import {
   makeEvaluator,
   makeWarmupPing,
@@ -111,7 +111,7 @@ test("API strips upstream error bodies and enforces total rate budget", async ()
   assert.equal(response.status, 502);
   assert.ok(!(await response.text()).includes("upstream-sensitive"));
   const app = createApp(async () => mockAnalysis());
-  for (let i = 0; i < 60; i++)
+  for (let i = 0; i < evaluationsPerMinute; i++)
     assert.equal((await app.request(post())).status, 200);
   assert.equal((await app.request(post())).status, 429);
 });
