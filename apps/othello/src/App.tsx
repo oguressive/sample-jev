@@ -567,7 +567,6 @@ export function App() {
             >
               元に戻す
             </button>
-            <button onClick={() => setDeleted(null)}>削除したままにする</button>
           </div>
         )}
         {view === "home" && (

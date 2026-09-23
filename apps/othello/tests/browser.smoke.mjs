@@ -278,8 +278,6 @@ try {
     path: `${output}/mobile-delete-banner.png`,
     fullPage: true,
   });
-  await button("削除したままにする").click();
-  assert.equal(await button("元に戻す").count(), 0);
   const redo = (await rows())[0];
   await page.locator("input[type=file]").setInputFiles({
     name: "notice.json",
@@ -287,8 +285,10 @@ try {
     buffer: Buffer.from(JSON.stringify(redo)),
   });
   await page.getByText("棋譜を練習記録として読み込みました").waitFor();
-  assert.equal(await button("元に戻す").count(), 0);
-  await until(async () => (await rows()).length === countBeforeDelete);
+  // Another notice must not replace or duplicate the restore action.
+  assert.equal(await button("元に戻す").count(), 1);
+  await button("元に戻す").click();
+  await until(async () => (await rows()).length === countBeforeDelete + 1);
   // File import is validated and cannot overwrite an existing game.
   const exported = (await rows())[0];
   await page.locator("input[type=file]").setInputFiles({
@@ -296,7 +296,7 @@ try {
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(exported)),
   });
-  await until(async () => (await rows()).length === countBeforeDelete + 1);
+  await until(async () => (await rows()).length === countBeforeDelete + 2);
   assert.equal(warmups, 2, "page load and reload each send one warmup hint");
   const failureContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
